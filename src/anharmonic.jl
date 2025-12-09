@@ -350,3 +350,70 @@ function snap_to_lattvecs!(lattvecs::Matrix{Float64}, positions::Matrix{Float64}
 
     return
 end
+
+struct ThreePhononDensity
+    density::Array{Float64,3}
+
+    function ThreePhononDensity(
+        ebdata::ebInputData,
+        deconvolution::DeconvData,
+        sodata::qeIfc2Output,
+        q1_cryst::Matrix{Float64},
+        cont_freqs::Vector{Float64},
+        smearing::Float64;
+        brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
+    )
+        numatoms = ebdata.allocations["numatoms"]
+        numbranches = 3 * numatoms
+
+        @info "Building HarmonicStatesData..."
+        # Calculate and reshape the frequencies and eigenvectors of 3 phonons by a 
+        # given sampling of the brillouin zone.
+        states = HarmonicStatesData(
+            ebdata,
+            sodata,
+            deconvolution,
+            q1_cryst;
+            brillouin_sampling,
+        )
+
+        numq1 = size(q1_cryst, 1)
+        numq2 = size(states.q2_cryst, 1)
+        numfreq = size(cont_freqs, 1)
+
+        density = Array{Float64,3}(undef, (numfreq, numq1, 3 * numatoms))
+        for λ in axes(states.q1_evec, 1)
+            s, iq = demux1to2(λ, numq1)
+            ω = states.q1_freqs[λ]
+
+            println("λ=", λ)
+            println("\ts1,iq1=", s, ",", iq, " ", demux1to2(λ, numq1))
+
+            for ifreq in 1:numfreq
+                # println("\t\tcont_freq=", cont_freqs[ifreq])
+
+                term = 0.0
+                for λ′ in axes(states.q2_evec, 1)
+                    _, iq′ = demux1to2(λ′, numq2)
+
+                    ω′ = states.q2_freqs[λ′]
+
+                    for s′′ in 1:numbranches
+                        λ′′ = mux2to1(s′′, iq′, numq2)
+
+                        ω′′_abso = states.q3_abso_freqs[λ′′, iq]
+                        ω′′_emit = states.q3_emit_freqs[λ′′, iq]
+
+                        term_plus = δ(ω, ω′′_abso - ω′; smearing)
+                        term_minus = δ(ω, ω′′_emit + ω′; smearing)
+
+                        term += term_plus + 0.5 * term_minus
+                    end
+                end
+
+                density[ifreq, iq, s] = term / numq2
+            end
+        end
+        new(density)
+    end
+end
