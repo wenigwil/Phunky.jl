@@ -352,6 +352,7 @@ function snap_to_lattvecs!(lattvecs::Matrix{Float64}, positions::Matrix{Float64}
 end
 
 struct ThreePhononDensity
+    energies::Matrix{Float64}
     plus::Matrix{Float64}
     minus::Matrix{Float64}
     total::Matrix{Float64}
@@ -381,16 +382,16 @@ struct ThreePhononDensity
         numq1 = size(q1_cryst, 1)
         numq2 = size(states.q2_cryst, 1)
 
-        plus = Matrix{Float64}(undef, (numq1, 3 * numatoms))
-        density = Matrix{Float64}(undef, (numq1, 3 * numatoms))
-        density = Matrix{Float64}(undef, (numq1, 3 * numatoms))
+        @info "Building Phasespace factors..."
+        energies = zeros(Float64, (numq1, 3 * numatoms))
+        plus = zeros(Float64, (numq1, 3 * numatoms))
+        minus = zeros(Float64, (numq1, 3 * numatoms))
+        total = zeros(Float64, (numq1, 3 * numatoms))
         for λ in axes(states.q1_evec, 1)
             s, iq = demux1to2(λ, numq1)
+            energies[iq, s] = states.q1_freqs[λ]
             ω = states.q1_freqs[λ]
 
-            plus = 0.0
-            minus = 0.0
-            total = 0.0
             for λ′ in axes(states.q2_evec, 1)
                 _, iq′ = demux1to2(λ′, numq2)
 
@@ -402,12 +403,13 @@ struct ThreePhononDensity
                     ω′′_abso = states.q3_abso_freqs[λ′′, iq]
                     ω′′_emit = states.q3_emit_freqs[λ′′, iq]
 
-                    plus[iq, s] = δ(ω, ω′′_abso - ω′; smearing) / numq2
-                    minus[iq, s] = δ(ω, ω′′_emit + ω′; smearing) / numq2
-                    total[iq, s] = plus[iq, s] + 0.5 * minus[iq, s]
+                    plus[iq, s] += δ(ω, ω′′_abso - ω′; smearing) / numq2
+                    minus[iq, s] += δ(ω, ω′′_emit + ω′; smearing) / numq2
+                    total[iq, s] += plus[iq, s] + 0.5 * minus[iq, s]
                 end
             end
         end
-        new(plus, minus, total)
+
+        new(energies, plus, minus, total)
     end
 end

@@ -14,7 +14,7 @@ function test_phasespace(smearing::Float64, sampling::Tuple{Int64,Int64,Int64})
     q1_file = readlines("examples/phasespace-verify/ph.wavevecs_ibz")
     # We'll use a dangerous thing that should not be done in general.
     numq1 = size(q1_file, 1)
-    q1_cryst = Matrix{Float64}(undef, (numq1, numbranches))
+    q1_cryst = Matrix{Float64}(undef, (numq1, 3))
     for iq in axes(q1_cryst, 1)
         q1_cryst[iq, :] = parse.(Float64, split(q1_file[iq]))
     end
@@ -31,30 +31,40 @@ function test_phasespace(smearing::Float64, sampling::Tuple{Int64,Int64,Int64})
     minus = threedense.minus
     total = threedense.total
 
-    return q1_cryst, plus, minus, total
+    return q1_cryst, threedense.energies, plus, minus, total
 end
 
 function get_elphbolt_phasespace()
-    plus = readlines("../examples/phasespace-verify/ph.phase_space3_plus")
-    minus = readlines("../examples/phasespace-verify/ph.phase_space3_minus")
-    total = readlines("../examples/phasespace-verify/ph.phase_space3_total")
+    plus_file = readlines("examples/phasespace-verify/ph.phase_space3_plus")
+    minus_file = readlines("examples/phasespace-verify/ph.phase_space3_minus")
+    total_file = readlines("examples/phasespace-verify/ph.phase_space3_total")
+    energies_file = readlines("examples/phasespace-verify/ph.ens_ibz")
     q1_file = readlines("examples/phasespace-verify/ph.wavevecs_ibz")
 
     # We'll use a dangerous thing that should not be done in general.
     numq1 = size(q1_file, 1)
-    for iq in 1:numq1
-        plus[iq] = parse.(Float64, split(plus[iq]))
-        minus[iq] = parse.(Float64, split(minus[iq]))
-        total[iq] = parse.(Float64, split(total[iq]))
-    end
-    numbranches = size(total, 2)
+    numbranches = length(split(total_file[1]))
 
-    q1_cryst = Matrix{Float64}(undef, (numq1, numbranches))
+    plus = Matrix{Float64}(undef, (numq1, numbranches))
+    minus = Matrix{Float64}(undef, (numq1, numbranches))
+    total = Matrix{Float64}(undef, (numq1, numbranches))
+    for iq in 1:numq1
+        plus[iq, :] = parse.(Float64, split(plus_file[iq]))
+        minus[iq, :] = parse.(Float64, split(minus_file[iq]))
+        total[iq, :] = parse.(Float64, split(total_file[iq]))
+    end
+
+    q1_cryst = Matrix{Float64}(undef, (numq1, 3))
     for iq in axes(q1_cryst, 1)
         q1_cryst[iq, :] = parse.(Float64, split(q1_file[iq]))
     end
 
-    return q1_cryst, plus, minus, total
+    energies = Matrix{Float64}(undef, (numq1, numbranches))
+    for iq in 1:numq1
+        energies[iq, :] = parse.(Float64, split(energies_file[iq]))
+    end
+
+    return q1_cryst, energies, plus, minus, total
 end
 """
 This function will test the reshaping that is implemented in the state.jl-file. It
