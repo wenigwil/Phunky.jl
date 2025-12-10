@@ -1,5 +1,61 @@
 # This file consists of a collection of functions for testing Phunky.jl
+"""
+This function will the summation in the anharmonic force constants by verifying the
+phasespace factors with the ones from elphbolt in the example/phasespace-verify dir!
+"""
+function test_phasespace(smearing::Float64, sampling::Tuple{Int64,Int64,Int64})
+    ebdata = ebInputData("examples/input.nml")
+    deconvolution = DeconvData(ebdata)
+    sodata = qeIfc2Output("examples/espresso.ifc2")
 
+    numatoms = ebdata.allocations["numatoms"]
+    numbranches = 3 * numatoms
+    # First we read the provided q1 in crystal coordinates provided from elphbolt
+    q1_file = readlines("examples/phasespace-verify/ph.wavevecs_ibz")
+    # We'll use a dangerous thing that should not be done in general.
+    numq1 = size(q1_file, 1)
+    q1_cryst = Matrix{Float64}(undef, (numq1, numbranches))
+    for iq in axes(q1_cryst, 1)
+        q1_cryst[iq, :] = parse.(Float64, split(q1_file[iq]))
+    end
+
+    threedense = ThreePhononDensity(
+        ebdata,
+        deconvolution,
+        sodata,
+        q1_cryst,
+        smearing;
+        brillouin_sampling = sampling,
+    )
+    plus = threedense.plus
+    minus = threedense.minus
+    total = threedense.total
+
+    return q1_cryst, plus, minus, total
+end
+
+function get_elphbolt_phasespace()
+    plus = readlines("../examples/phasespace-verify/ph.phase_space3_plus")
+    minus = readlines("../examples/phasespace-verify/ph.phase_space3_minus")
+    total = readlines("../examples/phasespace-verify/ph.phase_space3_total")
+    q1_file = readlines("examples/phasespace-verify/ph.wavevecs_ibz")
+
+    # We'll use a dangerous thing that should not be done in general.
+    numq1 = size(q1_file, 1)
+    for iq in 1:numq1
+        plus[iq] = parse.(Float64, split(plus[iq]))
+        minus[iq] = parse.(Float64, split(minus[iq]))
+        total[iq] = parse.(Float64, split(total[iq]))
+    end
+    numbranches = size(total, 2)
+
+    q1_cryst = Matrix{Float64}(undef, (numq1, numbranches))
+    for iq in axes(q1_cryst, 1)
+        q1_cryst[iq, :] = parse.(Float64, split(q1_file[iq]))
+    end
+
+    return q1_cryst, plus, minus, total
+end
 """
 This function will test the reshaping that is implemented in the state.jl-file. It
 reassures that the call vstack() with the slicing afterwards was done correctly.

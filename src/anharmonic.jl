@@ -352,14 +352,15 @@ function snap_to_lattvecs!(lattvecs::Matrix{Float64}, positions::Matrix{Float64}
 end
 
 struct ThreePhononDensity
-    density::Array{Float64,3}
+    plus::Matrix{Float64}
+    minus::Matrix{Float64}
+    total::Matrix{Float64}
 
     function ThreePhononDensity(
         ebdata::ebInputData,
         deconvolution::DeconvData,
         sodata::qeIfc2Output,
         q1_cryst::Matrix{Float64},
-        cont_freqs::Vector{Float64},
         smearing::Float64;
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
     )
@@ -379,41 +380,34 @@ struct ThreePhononDensity
 
         numq1 = size(q1_cryst, 1)
         numq2 = size(states.q2_cryst, 1)
-        numfreq = size(cont_freqs, 1)
 
-        density = Array{Float64,3}(undef, (numfreq, numq1, 3 * numatoms))
+        plus = Matrix{Float64}(undef, (numq1, 3 * numatoms))
+        density = Matrix{Float64}(undef, (numq1, 3 * numatoms))
+        density = Matrix{Float64}(undef, (numq1, 3 * numatoms))
         for λ in axes(states.q1_evec, 1)
             s, iq = demux1to2(λ, numq1)
             ω = states.q1_freqs[λ]
 
-            println("λ=", λ)
-            println("\ts1,iq1=", s, ",", iq, " ", demux1to2(λ, numq1))
+            plus = 0.0
+            minus = 0.0
+            total = 0.0
+            for λ′ in axes(states.q2_evec, 1)
+                _, iq′ = demux1to2(λ′, numq2)
 
-            for ifreq in 1:numfreq
-                # println("\t\tcont_freq=", cont_freqs[ifreq])
+                ω′ = states.q2_freqs[λ′]
 
-                term = 0.0
-                for λ′ in axes(states.q2_evec, 1)
-                    _, iq′ = demux1to2(λ′, numq2)
+                for s′′ in 1:numbranches
+                    λ′′ = mux2to1(s′′, iq′, numq2)
 
-                    ω′ = states.q2_freqs[λ′]
+                    ω′′_abso = states.q3_abso_freqs[λ′′, iq]
+                    ω′′_emit = states.q3_emit_freqs[λ′′, iq]
 
-                    for s′′ in 1:numbranches
-                        λ′′ = mux2to1(s′′, iq′, numq2)
-
-                        ω′′_abso = states.q3_abso_freqs[λ′′, iq]
-                        ω′′_emit = states.q3_emit_freqs[λ′′, iq]
-
-                        term_plus = δ(ω, ω′′_abso - ω′; smearing)
-                        term_minus = δ(ω, ω′′_emit + ω′; smearing)
-
-                        term += term_plus + 0.5 * term_minus
-                    end
+                    plus[iq, s] = δ(ω, ω′′_abso - ω′; smearing) / numq2
+                    minus[iq, s] = δ(ω, ω′′_emit + ω′; smearing) / numq2
+                    total[iq, s] = plus[iq, s] + 0.5 * minus[iq, s]
                 end
-
-                density[ifreq, iq, s] = term / numq2
             end
         end
-        new(density)
+        new(plus, minus, total)
     end
 end
