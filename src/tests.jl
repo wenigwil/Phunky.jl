@@ -8,8 +8,6 @@ function test_phasespace(smearing::Float64, sampling::Tuple{Int64,Int64,Int64})
     deconvolution = DeconvData(ebdata)
     sodata = qeIfc2Output("examples/espresso.ifc2")
 
-    numatoms = ebdata.allocations["numatoms"]
-    numbranches = 3 * numatoms
     # First we read the provided q1 in crystal coordinates provided from elphbolt
     q1_file = readlines("examples/phasespace-verify/ph.wavevecs_ibz")
     # We'll use a dangerous thing that should not be done in general.
