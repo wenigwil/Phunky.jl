@@ -45,7 +45,7 @@ print("Generated a path of length", size(sympath.qpoints), "\n")
 
 # Main computation of the harmonic phonon properties
 @info "Calculating Lattice Vibrations..."
-lattvibr = @btime LatticeVibrations(ebinput, qeinput, deconvolution, sympath.qpoints)
+lattvibr = LatticeVibrations(ebinput, qeinput, deconvolution, sympath.qpoints)
 
 extra_dict =
     Dict("tick style" => "thick", "xtick pos" => "left", "ytick pos" => "left")
@@ -74,4 +74,4 @@ p = Plots.plot(
 )
 
 Plots.vline!(sympath.xticks_pos[2:(end - 1)], lc = :black, lw = 0.9)
-Plots.savefig("phonon-disp.pdf")
+Plots.savefig("graphs/phonon-disp.pdf")

@@ -8,10 +8,11 @@ struct LatticeVibrations
         deconvolution::DeconvData,
         qpoints_cryst::Matrix{Float64},
     )
-        numatoms = ebdata.allocations["numatoms"]
         lattvecs = ebdata.crystal_info["lattvecs"]
         basisatoms2species = ebdata.crystal_info["atomtypes"]
         species2masses = ebdata.crystal_info["masses"]
+        numatoms = ebdata.allocations["numatoms"]
+        numbranches = 3 * numatoms
 
         ifc2 = qedata.properties["ifc2"]
 
@@ -27,10 +28,11 @@ struct LatticeVibrations
 
         enforce_acoustic_sum_rule!(ifc2)
 
-        fullq_freqs = Matrix{Float64}(undef, (numqpoints, 3 * numatoms))
+        fullq_freqs = Matrix{Float64}(undef, (numqpoints, numbranches))
+        velocities = Array{Float64,3}(undef, (numqpoints, numbranches, 3))
         # eigdisplacement[iq, branch, icart, iat]
         eigdisplacement =
-            Array{ComplexF64,4}(undef, (numqpoints, 3 * numatoms, 3, numatoms))
+            Array{ComplexF64,4}(undef, (numqpoints, numbranches, 3, numatoms))
 
         # These things are factored out so it won't be recomputed a lot
         mass_prefactor = build_mass_prefactor(basisatoms2species, species2masses)
@@ -42,14 +44,9 @@ struct LatticeVibrations
 
         qpoints_cart = qpoints_cryst * permutedims(reclattvecs)
 
-        # @info """
-        # LatticeVibration Constructor: Beginning parallel computation of eigenvectors 
-        # and frequencies...
-        # """ size(qpoints_cryst)
-
         Threads.@threads for iq in axes(qpoints_cryst, 1)
             # print_progress(iq, numqpoints, 0.05)
-            dynmat = build_dynamical_matrix(
+            dynmat, ∇q_dynmat = build_dynamical_matrix(
                 weightmap,
                 uqf,
                 unitpoints_cart,
@@ -65,6 +62,24 @@ struct LatticeVibrations
             # is made up of column-eigenvectors. eigvecs[:,i] will yield the i-th 
             # eigenvector made up of 3*numatoms elements. 
             eigvals, eigvecs = LinAlg.eigen(dynmat)
+            freqs = copysign.(sqrt.(abs.(eigvals)), eigvals)
+            # Fixing the gauge
+            if ~iszero(eigvecs[1, 1])
+                eigvecs ./= (eigvecs[1, 1] / abs(eigvecs[1, 1]))
+            end
+
+            for ibranch in 1:numbranches
+                for icart in 1:3
+                    velocities[iq, ibranch, icart] = begin
+                        real(
+                            LinAlg.dot(
+                                eigvecs[:, ibranch],
+                                ∇q_dynmat[:, :, icart] * eigvecs[:, ibranch],
+                            ),
+                        ) / (2 * freqs[ibranch])
+                    end
+                end
+            end
 
             # First put the branch index in front and then demux cartesian and 
             # atomindex. In the muxing the cartesian index was the faster one so it 
@@ -73,7 +88,7 @@ struct LatticeVibrations
             eigvecs = reshape(permutedims(eigvecs), (3 * numatoms, 3, numatoms))
 
             # Eigenvalues are the squared eigenfrequencies of the system
-            fullq_freqs[iq, :] = copysign.(sqrt.(abs.(eigvals)), eigvals)
+            fullq_freqs[iq, :] = freqs
             # According to Togo eq (6) and (7) the eigvecs just stay normalized
             eigdisplacement[iq, :, :, :] = eigvecs
 
@@ -81,11 +96,6 @@ struct LatticeVibrations
                 fullq_freqs[iq, 1:3] .= [0.0, 0.0, 0.0]
             end
         end
-
-        # TODO: GPU Computation
-        # Create a big dynmat-array for all q-points
-        # Send it to the device using CuArray
-        # use the batched eigenvalue solver
 
         # Unit conversion
         fullq_freqs .*= RydtoTHz
@@ -160,6 +170,9 @@ function build_dynamical_matrix(
 )
     numatoms = size(mass_prefactor, 1)
     dynmat = zeros(ComplexF64, (3 * numatoms, 3 * numatoms))
+    # Element-wise gradient of the dynamical matrix
+    ∇q_dynmat = zeros(ComplexF64, (3 * numatoms, 3 * numatoms, 3))
+
     numunitpoints = size(unitpoints_cart, 1)
 
     for iat in 1:numatoms
@@ -182,7 +195,29 @@ function build_dynamical_matrix(
                                     uqf[l, jat, iat, 3],
                                 ] *
                                 exp(
-                                    im * LinAlg.dot(
+                                    -im * LinAlg.dot(
+                                        qpoint_cart,
+                                        unitpoints_cart[l, :],
+                                    ),
+                                ) *
+                                weightmap[l, jat, iat]
+                            end
+
+                            # We also build the derivative for the velocity!
+                            ∇q_dynmat[i, j, :] = @views begin
+                                im *
+                                unitpoints_cart[l, :] *
+                                ifc2[
+                                    icart,
+                                    jcart,
+                                    iat,
+                                    jat,
+                                    uqf[l, jat, iat, 1],
+                                    uqf[l, jat, iat, 2],
+                                    uqf[l, jat, iat, 3],
+                                ] *
+                                exp(
+                                    -im * LinAlg.dot(
                                         qpoint_cart,
                                         unitpoints_cart[l, :],
                                     ),
@@ -193,12 +228,13 @@ function build_dynamical_matrix(
                     end
 
                     @inbounds dynmat[i, j] /= mass_prefactor[iat, jat]
+                    @inbounds ∇q_dynmat[i, j, :] /= mass_prefactor[iat, jat]
                 end
             end
         end
     end
 
-    return dynmat
+    return dynmat, ∇q_dynmat
 end
 
 """
