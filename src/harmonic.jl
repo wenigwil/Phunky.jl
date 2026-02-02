@@ -99,6 +99,7 @@ struct LatticeVibrations
 
         # Unit conversion
         fullq_freqs .*= Ryd_to_turnTHz
+        # velocities .*= 
 
         new(fullq_freqs, eigdisplacement, velocities)
     end

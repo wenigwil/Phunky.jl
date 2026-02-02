@@ -41,7 +41,7 @@ const a0_m = hbar_Js / (me_kg * c_m_ov_s * α)
 const Rinf_1_ov_m = me_kg * c_m_ov_s * α^2 / (2 * h_Js)
 
 # =======================
-# Unit conversion factors
+# UNIT CONVERSION factors
 # =======================
 
 # MULTIPLY with an Energy in [Ryd] to convert into [10^12*tr/s] or equally [THz]
