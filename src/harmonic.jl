@@ -1,6 +1,7 @@
 struct LatticeVibrations
     fullq_freqs::Matrix{Float64}
     eigdisplacement::Array{ComplexF64,4}
+    velocities::Array{Float64,3}
 
     function LatticeVibrations(
         ebdata::ebInputData,
@@ -21,8 +22,8 @@ struct LatticeVibrations
         unitpoints_cart = deconvolution.unitpoints_cart
 
         # elphbolt input.nml has the atom mass in units of Dalton (amu) and we need 
-        # them in multiples of double electron mass (Rydberg units) for these calcs
-        species2masses = species2masses * m_u / (2 * m_e)
+        # them in multiples of double electron mass (Rydberg units) 
+        species2masses = species2masses * dalton_to_2me
 
         numqpoints = size(qpoints_cryst, 1)
 
@@ -34,18 +35,15 @@ struct LatticeVibrations
         eigdisplacement =
             Array{ComplexF64,4}(undef, (numqpoints, numbranches, 3, numatoms))
 
-        # These things are factored out so it won't be recomputed a lot
+        # This does not need to recomputed so it's out of the main q-point loop
         mass_prefactor = build_mass_prefactor(basisatoms2species, species2masses)
 
-        # Lattvecs are given in nm we need the reclattvecs in bohr
-        # Reciprocal lattice vectors have units of 1/length such that a 
-        # multiplication with the Bohr-radius in nm will convert from 1/nm to 1/bohr
-        reclattvecs = calc_reciprocal_lattvecs(lattvecs) * a0_nm
+        # Reclattvecs are calculated in [1/nm]. We convert to [1/Bohr]
+        reclattvecs = calc_reciprocal_lattvecs(lattvecs) / nm_to_bohr
 
         qpoints_cart = qpoints_cryst * permutedims(reclattvecs)
 
         Threads.@threads for iq in axes(qpoints_cryst, 1)
-            # print_progress(iq, numqpoints, 0.05)
             dynmat, ∇q_dynmat = build_dynamical_matrix(
                 weightmap,
                 uqf,
@@ -63,6 +61,7 @@ struct LatticeVibrations
             # eigenvector made up of 3*numatoms elements. 
             eigvals, eigvecs = LinAlg.eigen(dynmat)
             freqs = copysign.(sqrt.(abs.(eigvals)), eigvals)
+
             # Fixing the gauge
             if ~iszero(eigvecs[1, 1])
                 eigvecs ./= (eigvecs[1, 1] / abs(eigvecs[1, 1]))
@@ -94,13 +93,14 @@ struct LatticeVibrations
 
             if iszero(qpoints_cryst[iq, :])
                 fullq_freqs[iq, 1:3] .= [0.0, 0.0, 0.0]
+                velocities[iq, :, :] .= 0.0
             end
         end
 
         # Unit conversion
-        fullq_freqs .*= RydtoTHz
+        fullq_freqs .*= Ryd_to_turnTHz
 
-        new(fullq_freqs, eigdisplacement)
+        new(fullq_freqs, eigdisplacement, velocities)
     end
 end
 
@@ -204,7 +204,7 @@ function build_dynamical_matrix(
                             end
 
                             # We also build the derivative for the velocity!
-                            ∇q_dynmat[i, j, :] = @views begin
+                            @inbounds ∇q_dynmat[i, j, :] = @views begin
                                 im *
                                 unitpoints_cart[l, :] *
                                 ifc2[

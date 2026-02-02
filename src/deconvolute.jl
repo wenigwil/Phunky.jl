@@ -8,7 +8,7 @@ struct DeconvData
         # numbasisatomsx3 basis in fractional coordiantes
         basis_frac = transpose(ebdata.crystal_info["basis"])
         # lattice vectors given as transpose([a1 a2 a3]) in Bohr
-        lattvecs = transpose(ebdata.crystal_info["lattvecs"]) / a0_nm
+        lattvecs = transpose(ebdata.crystal_info["lattvecs"]) * nm_to_bohr
         # Get the basis in cartesian coords. Will give a numbasisatomsx3 matrix
         basis_cart = (basis_frac * lattvecs)
         basiscons_cart = build_basisconnectors(numbasisatoms, basis_cart)

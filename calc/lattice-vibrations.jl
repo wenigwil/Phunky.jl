@@ -1,4 +1,5 @@
 import Plots;
+import LinearAlgebra as LinAlg
 using BenchmarkTools;
 Plots.pgfplotsx();
 using Phunky
@@ -47,12 +48,22 @@ print("Generated a path of length", size(sympath.qpoints), "\n")
 @info "Calculating Lattice Vibrations..."
 lattvibr = LatticeVibrations(ebinput, qeinput, deconvolution, sympath.qpoints)
 
-extra_dict =
-    Dict("tick style" => "thick", "xtick pos" => "left", "ytick pos" => "left")
-
 # Making the names alittle shorter
 distances = sympath.distances
 freqs = lattvibr.fullq_freqs
+velocities = lattvibr.velocities
+
+speeds = Array{Float64,2}(undef, size(velocities, 1), size(velocities, 2))
+
+for iq in axes(velocities, 1)
+    for ibranch in axes(velocities, 2)
+        speeds[iq, ibranch] = LinAlg.norm(velocities[iq, ibranch, :])
+    end
+end
+
+# Polish for the plot
+extra_dict =
+    Dict("tick style" => "thick", "xtick pos" => "left", "ytick pos" => "left")
 
 p = Plots.plot(
     distances,
@@ -70,7 +81,7 @@ p = Plots.plot(
     tex_output_standalone = true,
     xtickfontsize = 12,
     ytickfontsize = 12,
-    extra_kwargs = Dict(:subplot => extra_dict),
+    # extra_kwargs = Dict(:subplot => extra_dict),
 )
 
 Plots.vline!(sympath.xticks_pos[2:(end - 1)], lc = :black, lw = 0.9)

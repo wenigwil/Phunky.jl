@@ -12,6 +12,7 @@ struct Phonons
         smearing::Float64;
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
     )
+
         # System description
         numatoms = ebdata.allocations["numatoms"]
         numbranches = 3 * numatoms
