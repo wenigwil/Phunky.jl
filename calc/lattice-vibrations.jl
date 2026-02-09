@@ -16,8 +16,11 @@ seek_path_points = [
     0.75 0.25 0.5
 ]
 # Build a "walkable" path from the seekpath symmetry points
-seek_path_1 = seek_path_points[[1, 6, 4], :]
-seek_path_2 = seek_path_points[[2, 1, 3, 5, 6, 7], :]
+# Γ X U|K Γ L W X W₂
+# seek_path_1 = seek_path_points[[1, 6, 4], :]
+# seek_path_2 = seek_path_points[[2, 1, 3, 5, 6, 7], :]
+
+seek_path_1 = seek_path_points[[2, 1, 3], :]
 
 # Read-in the main description of the system
 @info "Reading input.nml..."
@@ -38,7 +41,7 @@ sympath = Sympath(
     seek_path_points,
     point_labels,
     seek_path_1,
-    seek_path_2;
+    # seek_path_2;
     numpoints_per_section = 200,
 )
 
@@ -62,27 +65,27 @@ for iq in axes(velocities, 1)
 end
 
 # Polish for the plot
-extra_dict =
-    Dict("tick style" => "thick", "xtick pos" => "left", "ytick pos" => "left")
-
-p = Plots.plot(
-    distances,
-    freqs;
-    legend_position = false,
-    grid = false,
-    xlims = (minimum(distances), maximum(distances)),
-    ylims = (minimum(freqs), 1.05 * maximum(freqs)),
-    framestyle = :box,
-    tickdirection = :out,
-    color = :blue,
-    lw = 0.7,
-    xticks = (sympath.xticks_pos, sympath.xticks_labels),
-    ylabel = "Frequency ω [THz]",
-    tex_output_standalone = true,
-    xtickfontsize = 12,
-    ytickfontsize = 12,
-    # extra_kwargs = Dict(:subplot => extra_dict),
-)
-
-Plots.vline!(sympath.xticks_pos[2:(end - 1)], lc = :black, lw = 0.9)
-Plots.savefig("graphs/phonon-disp.pdf")
+# extra_dict =
+#     Dict("tick style" => "thick", "xtick pos" => "left", "ytick pos" => "left")
+#
+# p = Plots.plot(
+#     distances,
+#     freqs;
+#     legend_position = false,
+#     grid = false,
+#     xlims = (minimum(distances), maximum(distances)),
+#     ylims = (minimum(freqs), 1.05 * maximum(freqs)),
+#     framestyle = :box,
+#     tickdirection = :out,
+#     color = :blue,
+#     lw = 0.7,
+#     xticks = (sympath.xticks_pos, sympath.xticks_labels),
+#     ylabel = "Frequency ω [THz]",
+#     tex_output_standalone = true,
+#     xtickfontsize = 12,
+#     ytickfontsize = 12,
+#     # extra_kwargs = Dict(:subplot => extra_dict),
+# )
+#
+# Plots.vline!(sympath.xticks_pos[2:(end - 1)], lc = :black, lw = 0.9)
+# Plots.savefig("graphs/phonon-disp.pdf")

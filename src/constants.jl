@@ -58,6 +58,9 @@ const nm_to_bohr = 1 / (10^9 * a0_m)
 
 # MULTIPLY with a Mass in [Dalton] to convert into [DEM]
 # [DEM] is a placeholder unit of mass double the electron mass. This convention comes 
-# from a Rydberg Unit System defined at the following document.
+# from the Rydberg Unit System. Info at the following document.
 # http://ilan.schnell-web.net/physics/rydberg.pdf
 const dalton_to_2me = mu_kg / (2 * me_kg)
+
+# This is not pretty. It is a necessary evil.
+const Ryd_to_m_ov_s = pi * c_m_ov_s * α

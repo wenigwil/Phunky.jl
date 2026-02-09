@@ -1,7 +1,7 @@
 struct LatticeVibrations
     fullq_freqs::Matrix{Float64}
     eigdisplacement::Array{ComplexF64,4}
-    velocities::Array{Float64,3}
+    velocities::Array{ComplexF64,3}
 
     function LatticeVibrations(
         ebdata::ebInputData,
@@ -22,7 +22,7 @@ struct LatticeVibrations
         unitpoints_cart = deconvolution.unitpoints_cart
 
         # elphbolt input.nml has the atom mass in units of Dalton (amu) and we need 
-        # them in multiples of double electron mass (Rydberg units) 
+        # them in multiples of double electron mass (Rydberg units) nm_to_bohr
         species2masses = species2masses * dalton_to_2me
 
         numqpoints = size(qpoints_cryst, 1)
@@ -30,7 +30,7 @@ struct LatticeVibrations
         enforce_acoustic_sum_rule!(ifc2)
 
         fullq_freqs = Matrix{Float64}(undef, (numqpoints, numbranches))
-        velocities = Array{Float64,3}(undef, (numqpoints, numbranches, 3))
+        velocities = Array{ComplexF64,3}(undef, (numqpoints, numbranches, 3))
         # eigdisplacement[iq, branch, icart, iat]
         eigdisplacement =
             Array{ComplexF64,4}(undef, (numqpoints, numbranches, 3, numatoms))
@@ -43,7 +43,7 @@ struct LatticeVibrations
 
         qpoints_cart = qpoints_cryst * permutedims(reclattvecs)
 
-        Threads.@threads for iq in axes(qpoints_cryst, 1)
+        for iq in axes(qpoints_cryst, 1)
             dynmat, ∇q_dynmat = build_dynamical_matrix(
                 weightmap,
                 uqf,
@@ -63,21 +63,22 @@ struct LatticeVibrations
             freqs = copysign.(sqrt.(abs.(eigvals)), eigvals)
 
             # Fixing the gauge
-            if ~iszero(eigvecs[1, 1])
-                eigvecs ./= (eigvecs[1, 1] / abs(eigvecs[1, 1]))
-            end
+            # if ~iszero(eigvecs[1, 1])
+            #     eigvecs ./= (eigvecs[1, 1] / abs(eigvecs[1, 1]))
+            # end
 
             for ibranch in 1:numbranches
                 for icart in 1:3
                     velocities[iq, ibranch, icart] = begin
-                        real(
-                            LinAlg.dot(
-                                eigvecs[:, ibranch],
-                                ∇q_dynmat[:, :, icart] * eigvecs[:, ibranch],
-                            ),
-                        ) / (2 * freqs[ibranch])
+                        # real(
+                        LinAlg.dot(
+                            eigvecs[:, ibranch],
+                            ∇q_dynmat[:, :, icart] * eigvecs[:, ibranch],
+                        )
+                        # )
                     end
                 end
+                velocities[iq, ibranch, :] ./= (2 * freqs[ibranch])
             end
 
             # First put the branch index in front and then demux cartesian and 
@@ -93,17 +94,18 @@ struct LatticeVibrations
 
             if iszero(qpoints_cryst[iq, :])
                 fullq_freqs[iq, 1:3] .= [0.0, 0.0, 0.0]
-                velocities[iq, :, :] .= 0.0
+                # velocities[iq, :, :] .= 0.0
             end
         end
 
         # Unit conversion
         fullq_freqs .*= Ryd_to_turnTHz
-        # velocities .*= 
+        # velocities .*= Ryd_to_m_ov_s
 
         new(fullq_freqs, eigdisplacement, velocities)
     end
 end
+
 
 struct DensityOfStates
     density::Vector{Float64}
@@ -185,7 +187,7 @@ function build_dynamical_matrix(
 
                     for l in 1:numunitpoints
                         if weightmap[l, jat, iat] > 0
-                            @inbounds dynmat[i, j] += @views begin
+                            dynmat[i, j] += @views begin
                                 ifc2[
                                     icart,
                                     jcart,
@@ -205,8 +207,8 @@ function build_dynamical_matrix(
                             end
 
                             # We also build the derivative for the velocity!
-                            @inbounds ∇q_dynmat[i, j, :] = @views begin
-                                im *
+                            ∇q_dynmat[i, j, :] = @views begin
+                                -im *
                                 unitpoints_cart[l, :] *
                                 ifc2[
                                     icart,
@@ -228,8 +230,8 @@ function build_dynamical_matrix(
                         end
                     end
 
-                    @inbounds dynmat[i, j] /= mass_prefactor[iat, jat]
-                    @inbounds ∇q_dynmat[i, j, :] /= mass_prefactor[iat, jat]
+                    dynmat[i, j] /= mass_prefactor[iat, jat]
+                    ∇q_dynmat[i, j, :] /= mass_prefactor[iat, jat]
                 end
             end
         end
