@@ -62,5 +62,5 @@ const nm_to_bohr = 1 / (10^9 * a0_m)
 # http://ilan.schnell-web.net/physics/rydberg.pdf
 const dalton_to_2me = mu_kg / (2 * me_kg)
 
-# This is not pretty. It is a necessary evil.
+# MULTIPLY with a Velocity in [1/Bohr] to convert into [rad * km / s]
 const Ryd_to_km_ov_s = c_m_ov_s * α / 2 * 10^(-3)

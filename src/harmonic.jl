@@ -1,7 +1,7 @@
 struct LatticeVibrations
     fullq_freqs::Matrix{Float64}
     eigdisplacement::Array{ComplexF64,4}
-    velocities::Array{ComplexF64,3}
+    velocities::Array{Float64,3}
 
     function LatticeVibrations(
         ebdata::ebInputData,
@@ -69,6 +69,7 @@ struct LatticeVibrations
 
             for ibranch in 1:numbranches
                 for icart in 1:3
+                    # A sesquilinear form of a hermitian matrix will be real
                     velocities[iq, ibranch, icart] = begin
                         real(
                             LinAlg.dot(
@@ -98,7 +99,7 @@ struct LatticeVibrations
             end
         end
 
-        # Unit conversion
+        # Convert from the Rydberg Unit System to SI
         fullq_freqs .*= Ryd_to_turnTHz
         velocities .*= Ryd_to_km_ov_s
 
