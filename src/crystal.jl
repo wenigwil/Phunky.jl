@@ -27,9 +27,10 @@ function calc_reciprocal_lattvecs(lattvecs::Matrix{Float64})
 end
 
 """
-Sample the Brillouin Zone in crystal coordinates that go from 0 to 1. Should be used
-to sample the Brillouin Zone in combination with `calc_reciprocal_lattvecs()` which
-will convert the sampled points to cartesian coordinates
+Sample the Brillouin Zone in crystal coordinates that go from 0 to 1. The sampled
+points will not include points that are images of the Γ-point i.e. `[1,1,1]`. Should
+be used to sample the Brillouin Zone in combination with `calc_reciprocal_lattvecs()`
+which will convert the sampled points to cartesian coordinates.
 
 # Output
 
@@ -45,34 +46,9 @@ function sample_cube(sampling::Tuple{Int64,Int64,Int64})::Matrix{Float64}
         for j in 1:sampling[2]
             for i in 1:sampling[1]
                 iq += 1
-                points_cryst[iq, 1] = ((i - 1) / sampling[1])
-                points_cryst[iq, 2] = ((j - 1) / sampling[2])
-                points_cryst[iq, 3] = ((k - 1) / sampling[3])
-            end
-        end
-    end
-
-    return points_cryst
-end
-
-function sample_cube_Γ_centered(sampling::Tuple{Int64,Int64,Int64})::Matrix{Float64}
-    if ~all(iseven.(sampling))
-        Logging.@error "sample_cube_Γ_centered: Sampling must be a collection of even integers!"
-        return
-    end
-
-    # Sample a cube by dividing all axis in chunks between -1 and 1
-    points_cryst = Matrix{Float64}(undef, (prod(sampling .+ 1), 3))
-
-    sampling = div.(sampling, 2)
-    iq = 0
-    for i in (-sampling[1]):sampling[1]
-        for j in (-sampling[2]):sampling[2]
-            for k in (-sampling[3]):sampling[3]
-                iq += 1
-                points_cryst[iq, 1] = (i / sampling[1])
-                points_cryst[iq, 2] = (j / sampling[2])
-                points_cryst[iq, 3] = (k / sampling[3])
+                points_cryst[iq, 1] = (i - 1) / sampling[1]
+                points_cryst[iq, 2] = (j - 1) / sampling[2]
+                points_cryst[iq, 3] = (k - 1) / sampling[3]
             end
         end
     end

@@ -63,19 +63,19 @@ struct LatticeVibrations
             freqs = copysign.(sqrt.(abs.(eigvals)), eigvals)
 
             # Fixing the gauge
-            # if ~iszero(eigvecs[1, 1])
-            #     eigvecs ./= (eigvecs[1, 1] / abs(eigvecs[1, 1]))
-            # end
+            if ~iszero(eigvecs[1, 1])
+                eigvecs ./= (eigvecs[1, 1] / abs(eigvecs[1, 1]))
+            end
 
             for ibranch in 1:numbranches
                 for icart in 1:3
                     velocities[iq, ibranch, icart] = begin
-                        # real(
-                        LinAlg.dot(
-                            eigvecs[:, ibranch],
-                            ∇q_dynmat[:, :, icart] * eigvecs[:, ibranch],
+                        real(
+                            LinAlg.dot(
+                                eigvecs[:, ibranch],
+                                ∇q_dynmat[:, :, icart] * eigvecs[:, ibranch],
+                            ),
                         )
-                        # )
                     end
                 end
                 velocities[iq, ibranch, :] ./= (2 * freqs[ibranch])
@@ -94,18 +94,17 @@ struct LatticeVibrations
 
             if iszero(qpoints_cryst[iq, :])
                 fullq_freqs[iq, 1:3] .= [0.0, 0.0, 0.0]
-                # velocities[iq, :, :] .= 0.0
+                velocities[iq, :, :] .= 0.0
             end
         end
 
         # Unit conversion
         fullq_freqs .*= Ryd_to_turnTHz
-        # velocities .*= Ryd_to_m_ov_s
+        velocities .*= Ryd_to_km_ov_s
 
         new(fullq_freqs, eigdisplacement, velocities)
     end
 end
-
 
 struct DensityOfStates
     density::Vector{Float64}
@@ -207,7 +206,7 @@ function build_dynamical_matrix(
                             end
 
                             # We also build the derivative for the velocity!
-                            ∇q_dynmat[i, j, :] = @views begin
+                            ∇q_dynmat[i, j, :] += @views begin
                                 -im *
                                 unitpoints_cart[l, :] *
                                 ifc2[
