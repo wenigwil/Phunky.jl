@@ -63,4 +63,4 @@ const nm_to_bohr = 1 / (10^9 * a0_m)
 const dalton_to_2me = mu_kg / (2 * me_kg)
 
 # This is not pretty. It is a necessary evil.
-const Ryd_to_m_ov_s = pi * c_m_ov_s * α
+const Ryd_to_m_ov_s = c_m_ov_s * α / 2

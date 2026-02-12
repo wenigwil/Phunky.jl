@@ -38,16 +38,16 @@ will convert the sampled points to cartesian coordinates
 """
 function sample_cube(sampling::Tuple{Int64,Int64,Int64})::Matrix{Float64}
     # Sample a cube by dividing all axis in chunks between 0 and 1
-    points_cryst = Matrix{Float64}(undef, (prod(sampling .+ 1), 3))
+    points_cryst = Matrix{Float64}(undef, (prod(sampling), 3))
 
     iq = 0
-    for i in 0:sampling[1]
-        for j in 0:sampling[2]
-            for k in 0:sampling[3]
+    for k in 1:sampling[3]
+        for j in 1:sampling[2]
+            for i in 1:sampling[1]
                 iq += 1
-                points_cryst[iq, 1] = (i / sampling[1])
-                points_cryst[iq, 2] = (j / sampling[2])
-                points_cryst[iq, 3] = (k / sampling[3])
+                points_cryst[iq, 1] = ((i - 1) / sampling[1])
+                points_cryst[iq, 2] = ((j - 1) / sampling[2])
+                points_cryst[iq, 3] = ((k - 1) / sampling[3])
             end
         end
     end
