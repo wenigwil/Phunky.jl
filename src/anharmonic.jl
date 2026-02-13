@@ -16,6 +16,7 @@ struct Phonons
         # System description
         numatoms = ebdata.allocations["numatoms"]
         numbranches = 3 * numatoms
+        # TODO: What do we do about the units of the atomic masses?
         type2mass = ebdata.crystal_info["masses"]
         atindex2type = ebdata.crystal_info["atomtypes"]
         # The lattice vectors are in nm when they come out of the input.nml but we 
@@ -93,8 +94,9 @@ struct Phonons
                     println("\t\tω=0.0 SO WE SKIP!")
                     continue
                 end
+
                 scattering_rate[ifreq, iq1, s1] = begin
-                    hbar_eV_over_THz * V2units_orig_to_new * pi / (4 * numq2 * ω) * calc_Λ(
+                    calc_Λ(
                         λ,
                         cont_freqs[ifreq],
                         kbT,
@@ -108,7 +110,10 @@ struct Phonons
                         trip2position_j,
                         trip2position_k,
                         numbranches,
-                    )
+                    ) *
+                    hbar_eV_over_THz *
+                    V2units_orig_to_new *
+                    pi / (4 * numq2 * ω)
                 end
                 println("scattering rate is ", scattering_rate[ifreq, iq1, s1])
             end

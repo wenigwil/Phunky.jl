@@ -20,8 +20,6 @@ struct HarmonicStatesData
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (10, 10, 10),
     )
         numatoms = ebdata.allocations["numatoms"]
-        # @info "Sampling the Brillouin Zone..."
-        # q2_cryst = sample_cube(brillouin_sampling)
         q2_cryst = sample_cube(brillouin_sampling)
 
         numbranch = 3 * numatoms
