@@ -64,13 +64,13 @@ struct HarmonicStatesData
         q1_freqs = reshape(q1_freqs, (numq1 * numbranch))
         q2_freqs = reshape(q2_freqs, (numq2 * numbranch))
 
-        # EIGENVECTOR RESHAPING goes from eigvecs[iq,branch,α,k] to eigvecs[λ,α,k]
-        # where λ conforms with mux2to1(s,iq,numq)
         q1_eigvecs = harmonic.eigdisplacement[1:numq1, :, :, :]
         q2_eigvecs = harmonic.eigdisplacement[(numq1 + 1):numq12, :, :, :]
         q3_emit_eigvecs = harmonic.eigdisplacement[(numq12 + 1):numq123, :, :, :]
         q3_abso_eigvecs = harmonic.eigdisplacement[(numq123 + 1):numallq, :, :, :]
 
+        # EIGENVECTOR RESHAPING goes from eigvecs[iq,branch,α,k] to eigvecs[λ,α,k]
+        # where λ conforms with mux2to1(s,iq,numq)
         q1_eigvecs = reshape(q1_eigvecs, (numq1 * numbranch, 3, numatoms))
         q2_eigvecs = reshape(q2_eigvecs, (numq2 * numbranch, 3, numatoms))
 
@@ -89,13 +89,13 @@ struct HarmonicStatesData
         # q3_eigvecs[iq3, branch, α, k] to q3_eigvecs[λ′, α, k, iq1]
         q3_emit_eigvecs =
             reshape(q3_emit_eigvecs, (numq2, numq1, numbranch, 3, numatoms))
-        q3_abso_eigvecs =
-            reshape(q3_abso_eigvecs, (numq2, numq1, numbranch, 3, numatoms))
         q3_emit_eigvecs = permutedims(q3_emit_eigvecs, (1, 3, 4, 5, 2))
-        q3_abso_eigvecs = permutedims(q3_abso_eigvecs, (1, 3, 4, 5, 2))
-
         q3_emit_eigvecs =
             reshape(q3_emit_eigvecs, (numq2 * numbranch, 3, numatoms, numq1))
+
+        q3_abso_eigvecs =
+            reshape(q3_abso_eigvecs, (numq2, numq1, numbranch, 3, numatoms))
+        q3_abso_eigvecs = permutedims(q3_abso_eigvecs, (1, 3, 4, 5, 2))
         q3_abso_eigvecs =
             reshape(q3_abso_eigvecs, (numq2 * numbranch, 3, numatoms, numq1))
 
@@ -116,14 +116,11 @@ struct HarmonicStatesData
     end
 end
 
-function wrap(x::AbstractFloat, b::AbstractFloat)
-    return 2 * mod((x - b) / 2, b) - b
-end
-
 """
 Calculate the q-vectors in crystal coordinates for the third phonon in both 3-phonon
 processes using the conservation of momentum. `q1` is intended to be sampled along
-a symmetry path and `q2` comes from the full Brillouin zone
+a symmetry path and `q2` comes from the full Brillouin zone. In crystal coordinates
+the `q2` are vectors with elements from `[0,1)`.
 
 For the absorption it must be that `q3 = (q1 + q2) mod G` and for the emission it
 must be that `q3 = (q1 - q2) mod G` where `mod G` wraps beyond the Brillouin Zone
@@ -149,32 +146,6 @@ function fill_q3!(
                 )
             q3_emit[iq3, :] =
                 mod.(
-                    view(q1_cryst, iq1, :) - view(q2_cryst, iq2, :),
-                    ones(Float64, 3),
-                )
-        end
-    end
-
-    return
-end
-
-function fill_q3_Γ_centered!(
-    q1_cryst::Matrix{Float64},
-    q2_cryst::Matrix{Float64},
-    q3_abso::Matrix{Float64},
-    q3_emit::Matrix{Float64},
-)
-    iq3 = 0
-    for iq1 in axes(q1_cryst, 1)
-        for iq2 in axes(q2_cryst, 1)
-            iq3 += 1
-            q3_abso[iq3, :] =
-                wrap.(
-                    view(q1_cryst, iq1, :) + view(q2_cryst, iq2, :),
-                    ones(Float64, 3),
-                )
-            q3_emit[iq3, :] =
-                wrap.(
                     view(q1_cryst, iq1, :) - view(q2_cryst, iq2, :),
                     ones(Float64, 3),
                 )

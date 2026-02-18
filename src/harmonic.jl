@@ -43,7 +43,7 @@ struct LatticeVibrations
 
         qpoints_cart = qpoints_cryst * permutedims(reclattvecs)
 
-        for iq in axes(qpoints_cryst, 1)
+        Threads.@threads for iq in axes(qpoints_cryst, 1)
             dynmat, ∇q_dynmat = build_dynamical_matrix(
                 weightmap,
                 uqf,
@@ -118,33 +118,31 @@ struct DensityOfStates
         deconvolution::DeconvData,
         numenergies::Int64,
         sampling::Tuple{Int64,Int64,Int64},
-        smearing::Float64,
     )
-        lattvecs = ebdata.crystal_info["lattvecs"]
         numatoms = ebdata.allocations["numatoms"]
-        uc_volume =
-            LinAlg.dot(lattvecs[:, 1], LinAlg.cross(lattvecs[:, 2], lattvecs[:, 3]))
 
         qpoints_cryst = sample_cube(sampling)
         numq = size(qpoints_cryst, 1)
         harmonic = LatticeVibrations(ebdata, qedata, deconvolution, qpoints_cryst)
 
         # Get the energies in eV
-        energies = harmonic.fullq_freqs * 1e12 * h_Js / ev_joule
-        println("Sizzeeeeeeee", size(energies))
+        energies = harmonic.fullq_freqs * 1e12 * h_Js * J_to_eV
+        # println("Sizzeeeeeeee", size(energies))
 
         energies = reshape(energies, 3 * numatoms * numq)
 
         cont_energies = collect(range(0.0, maximum(energies) * 1.1, numenergies))
+        energy_spacing = cont_energies[2] - cont_energies[1]
 
         density = zeros(Float64, size(cont_energies, 1))
 
         Threads.@threads for i in axes(cont_energies, 1)
             density[i] = 0.0
             for j in axes(energies, 1)
-                density[i] += δ(cont_energies[i], energies[j]; smearing = smearing)
+                density[i] +=
+                    δ(cont_energies[i], energies[j]; smearing = energy_spacing / 20)
             end
-            density[i] /= (numq * uc_volume)
+            density[i] /= (numq)
         end
 
         new(density, cont_energies, energies)

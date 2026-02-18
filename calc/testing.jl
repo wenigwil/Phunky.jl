@@ -1,4 +1,4 @@
-using Phunky
+include("../src/Phunky.jl")
 using Plots
 # Plots.pgfplotsx();
 
@@ -35,7 +35,7 @@ total_eb = reshape(total_eb, (new_length))
 energies = reshape(energies, (new_length))
 total = reshape(total, (new_length))
 
-my_plot = scatter(
+ps_plot = plot(
     energies .* 1000,
     total;
     xlabel = "Energy E ",
@@ -44,7 +44,8 @@ my_plot = scatter(
     plotargs...,
 )
 
-eb_plot = scatter(
+plot!(
+    ps_plot,
     energies_eb .* 1000,
     total_eb;
     xlabel = "Energy E [meV]",
@@ -52,5 +53,8 @@ eb_plot = scatter(
     title = "elphbolt 1-phonon phasespace",
     plotargs...,
 )
-savefig(eb_plot, "eb-phasespace.pdf")
-savefig(my_plot, "my-phasespace.pdf")
+
+savefig(ps_plot, "compare.pdf")
+
+# savefig(eb_plot, "eb-phasespace.pdf")
+# savefig(my_plot, "my-phasespace.pdf")

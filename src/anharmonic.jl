@@ -23,12 +23,13 @@ struct Phonons
         # will do everything in Angstrom around here!
         lattvecs = ebdata.crystal_info["lattvecs"] * 10
         reclattvecs = calc_reciprocal_lattvecs(lattvecs)
-        # Convert temperature to kB * T in eV
-        kbT = kB_eV_over_K * T
+        # Calculate this factor in order to avoid recalculation during the loops
+        # Temperature comes into here in [K]
+        kbT = kb_J_ov_K * J_to_eV * T
 
         # Third Order Force Constants Data
         ifc3_tensor = todata.properties["ifc3_tensor"]
-        # Extract the data to convert the triplet index to
+        # Extract the data to convert the triplet index into...
         # Positions in Angstrom
         trip2position_j = todata.properties["trip2position_j"]
         trip2position_k = todata.properties["trip2position_k"]
@@ -52,7 +53,7 @@ struct Phonons
         snap_to_lattvecs!(lattvecs, trip2position_k)
         snap_to_lattvecs!(lattvecs, trip2position_j)
 
-        @info "Building HarmonicStatesData..."
+        # @info "Building HarmonicStatesData..."
         # Calculate and reshape the frequencies and eigenvectors of 3 phonons by a 
         # given sampling of the brillouin zone.
         states = HarmonicStatesData(
@@ -78,20 +79,19 @@ struct Phonons
         numq2 = size(states.q2_cryst, 1)
         numfreq = size(cont_freqs, 1)
 
-        @info "Beginning scattering rate calculations..."
+        # @info "Beginning scattering rate calculations..."
         # Calculating the scattering rates
         scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, 3 * numatoms))
         for λ in axes(states.q1_evec, 1)
-            println("λ=", λ)
             s1, iq1 = demux1to2(λ, numq1)
-            println("\ts1,iq1=", s1, ",", iq1, " ", demux1to2(λ, numq1))
-            ω = states.q1_freqs[λ]
-            println("\tω=", ω)
             for ifreq in 1:numfreq
-                println("\t\tcont_freq=", cont_freqs[ifreq])
-                if isapprox(ω, 0, atol = 0.5 * smearing)
-                    scattering_rate[ifreq, iq1, s1] = Inf64
-                    println("\t\tω=0.0 SO WE SKIP!")
+                ω = states.q1_freqs[λ] * turnTHz_to_eV
+
+                # At every loop-nesting depth we will check if the energy of the 
+                # state at the collective index vanishes. If so, we skip that 
+                # iteration because the scattering rate will diverge in this case.
+                if iszero(ω)
+                    scattering_rate[ifreq, iq1, s1] = 0.0
                     continue
                 end
 
@@ -111,13 +111,11 @@ struct Phonons
                         trip2position_k,
                         numbranches,
                     ) *
-                    hbar_eV_over_THz *
-                    V2units_orig_to_new *
+                    hbar_Js *
+                    J_to_eV *
                     pi / (4 * numq2 * ω)
                 end
-                println("scattering rate is ", scattering_rate[ifreq, iq1, s1])
             end
-            println("\n")
         end
 
         new(scattering_rate)
@@ -138,7 +136,7 @@ function calc_Λ(
     trip2position_j::Matrix{Float64},
     trip2position_k::Matrix{Float64},
     numbranches::Int64,
-)
+)::Float64
     numq1 = size(states.q1_cryst, 1)
     numq2 = size(states.q2_cryst, 1)
 
@@ -146,14 +144,15 @@ function calc_Λ(
     W_λ = states.q1_evec[λ, :, :]
 
     Λ = 0.0
-    Threads.@threads for λ′ in axes(states.q2_evec, 1)
+    for λ′ in axes(states.q2_evec, 1)
         _, iq′ = demux1to2(λ′, numq2)
 
-        ω′ = states.q2_freqs[λ′]
+        ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
 
-        # We skip the terms that will diverge as they do not contribute to the 
-        # lifetime of the phonons
-        if isapprox(ω′, 0.0, atol = 0.5 * smearing)
+        # At every loop-nesting depth we will check if the energy of the 
+        # state at the collective index vanishes. If so, we skip that iteration 
+        # because the scattering rate will diverge in this case.
+        if iszero(ω′)
             continue
         end
 
@@ -163,11 +162,10 @@ function calc_Λ(
         for s′′ in 1:numbranches
             λ′′ = mux2to1(s′′, iq′, numq2)
 
-            ω′′_abso = states.q3_abso_freqs[λ′′, iq]
-            ω′′_emit = states.q3_emit_freqs[λ′′, iq]
+            ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
+            ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
 
-            if isapprox(ω′′_abso, 0, atol = 0.5 * smearing) ||
-               isapprox(ω′′_emit, 0, atol = 0.5 * smearing)
+            if iszero(ω′′_abso) || iszero(ω′′_emit)
                 continue
             end
 
@@ -178,14 +176,11 @@ function calc_Λ(
             W_λ′′_emit = states.q3_emit_evec[λ′′, :, :, iq]
 
             statistics_abso = begin
-                bose(ω′ / RydtoTHz * rydberg_ev, kbT) -
-                bose(ω′′_abso / RydtoTHz * rydberg_ev, kbT)
+                bose(ω′, kbT) - bose(ω′′_abso, kbT)
             end
 
             statistics_emit = begin
-                bose(ω′ / RydtoTHz * rydberg_ev, kbT) +
-                bose(ω′′_emit / RydtoTHz * rydberg_ev, kbT) +
-                1
+                bose(ω′, kbT) + bose(ω′′_emit, kbT) + 1
             end
 
             Λplus = begin
@@ -224,37 +219,11 @@ function calc_Λ(
         end
     end
 
+    println(Λ)
     return Λ
 end
 
 """
-Calculate the squared matrix element V for a three-phonon scattering (absorption or
-emission). The interaction strengths are indexed by three phonon-state indices λ, λ'
-and λ". Each index is the result of multiplexing the q-point index `iq` and the
-branch index `s` using the `mux2to1(s,iq,numq)`-function.
-
-# Arguments
-
-  - `λ::Int64`: Collective state index of phonon-1 in the process. Multiplexing
-    conforms with the `reshape()`-function and consists of the q-point index `iq` and
-    the branch index `s` such that `λ = (s-1)*numq + iq` where `numq` is the maximum
-    of `iq`. `iq` is considered to be a fast index and `s` the slow one.
-  - `λ′::Int64`: Collective state index of phonon-2 in the process. Same as `λ`
-  - `λ′′::Int64`: Collective state index of phonon-3 in the process. Same as `λ`
-  - `q2::Matrix{Float64}`: q-points that are the result of sampling the whole
-    Brillouin zone. `q2[iq,:]` will yield the `iq`-th q-point. Demuxing `λ′` into its
-    slow and fast indices by using `demux1to2()` will yield `iq` to index this list
-    of q-points.
-  - `q3::Matrix{Float64}`: List of q-points as `q2`. This list must be generated from
-    the states of phonon-1 and phonon-2 by utilizing the momentum conservation. Thus
-    they (with their harmonic `q3_eigvecs`) determine whether the `calc_V2()`
-    calculates the matrix element for the absorption or emission process.
-  - `q1_eigvecs::Array{ComplexF64,3}`: Output from `LatticeVibrations()` upon input
-    with the q-points of phonon-1.
-  - `q2_eigvecs::Array{ComplexF64,3}`: Output from `LatticeVibrations()` upon input
-    with the q-points of phonon-2.
-  - `q3_eigvecs::Array{ComplexF64,3}`: Output from `LatticeVibrations()` upon input
-    with the q-points of phonon-3.
   - `ifc3_tensor::Array{Float64,3}`: Ifc3-tensor generated by ShengBTEs thirdorder.py
     indexed by a triplet-index `itrip` and three cartesian indices `α`,`α′` and `α′′`.
   - `trip2atomindices::Matrix{Int64}`: Translation of `itrip` to the atomindex of
@@ -265,10 +234,6 @@ branch index `s` using the `mux2to1(s,iq,numq)`-function.
   - `trip2position_k::Matrix{Float64}`: Unitcell positions of one of the two
     displaced atoms in the calculation of `ifc3_tensor`. Produced by thirdorder.py
     but snapped to the direct lattice grid for exact matching.
-
-# Output
-
-  - `V2::ComplexF64`: Matrix element.
 """
 function calc_V2plus(
     q′::Vector{Float64},
@@ -357,26 +322,21 @@ function snap_to_lattvecs!(lattvecs::Matrix{Float64}, positions::Matrix{Float64}
     return
 end
 
-struct ThreePhononDensity
-    energies::Matrix{Float64}
-    plus::Matrix{Float64}
-    minus::Matrix{Float64}
-    total::Matrix{Float64}
+struct PhaseSpace
+    phasespace::Vector{Float64}
 
-    function ThreePhononDensity(
+    function PhaseSpace(
         ebdata::ebInputData,
         deconvolution::DeconvData,
         sodata::qeIfc2Output,
         q1_cryst::Matrix{Float64},
+        cont_freqs::Vector{Float64},
         smearing::Float64;
-        brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
+        brillouin_sampling::Tuple{Int64,Int64,Int64} = (6, 6, 6),
     )
         numatoms = ebdata.allocations["numatoms"]
         numbranches = 3 * numatoms
 
-        @info "Building HarmonicStatesData..."
-        # Calculate and reshape the frequencies and eigenvectors of 3 phonons by a 
-        # given sampling of the brillouin zone.
         states = HarmonicStatesData(
             ebdata,
             sodata,
@@ -387,35 +347,38 @@ struct ThreePhononDensity
 
         numq1 = size(q1_cryst, 1)
         numq2 = size(states.q2_cryst, 1)
+        numfreq = size(cont_freqs, 1)
 
-        @info "Building Phasespace factors..."
-        energies = zeros(Float64, (numq1, 3 * numatoms))
-        plus = zeros(Float64, (numq1, 3 * numatoms))
-        minus = zeros(Float64, (numq1, 3 * numatoms))
-        total = zeros(Float64, (numq1, 3 * numatoms))
-        for λ in axes(states.q1_evec, 1)
-            s, iq = demux1to2(λ, numq1)
-            energies[iq, s] = states.q1_freqs[λ]
-            ω = states.q1_freqs[λ]
+        phasespace = Vector{Float64}(undef, numfreq)
+        for ifreq in 1:numfreq
+            ω = cont_freqs[ifreq]
 
-            for λ′ in axes(states.q2_evec, 1)
-                _, iq′ = demux1to2(λ′, numq2)
+            Λ = 0.0
+            for λ in axes(states.q1_evec, 1)
+                _, iq = demux1to2(λ, numq1)
 
-                ω′ = states.q2_freqs[λ′]
+                for λ′ in axes(states.q2_evec, 1)
+                    _, iq′ = demux1to2(λ′, numq2)
 
-                for s′′ in 1:numbranches
-                    λ′′ = mux2to1(s′′, iq′, numq2)
+                    ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
 
-                    ω′′_abso = states.q3_abso_freqs[λ′′, iq]
-                    ω′′_emit = states.q3_emit_freqs[λ′′, iq]
+                    for s′′ in 1:numbranches
+                        λ′′ = mux2to1(s′′, iq′, numq2)
 
-                    plus[iq, s] += δ(ω, ω′′_abso - ω′; smearing) / numq2
-                    minus[iq, s] += δ(ω, ω′′_emit + ω′; smearing) / numq2
-                    total[iq, s] += plus[iq, s] + 0.5 * minus[iq, s]
+                        ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
+                        ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
+
+                        Λplus = δ(ω, ω′′_abso - ω′; smearing)
+
+                        Λminus = δ(ω, ω′′_emit + ω′; smearing)
+
+                        Λ += Λplus + 0.5 * Λminus
+                    end
                 end
+                phasespace[ifreq] = Λ
             end
         end
 
-        new(energies, plus, minus, total)
+        new(phasespace / numq2)
     end
 end

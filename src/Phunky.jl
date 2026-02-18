@@ -24,6 +24,7 @@ export DensityOfStates
 include("state.jl")
 include("anharmonic.jl")
 export Phonons
+export PhaseSpace
 
 include("tests.jl")
 

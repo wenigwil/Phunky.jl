@@ -20,6 +20,9 @@ const me_kg = 9.1093837139e-31
 # Unified atomic mass unit [kg] https://physics.nist.gov/cgi-bin/cuu/Value?ukg
 const mu_kg = 1.66053906892e-27
 
+# Boltzmann Constant [J/K] https://physics.nist.gov/cgi-bin/cuu/Value?k
+const kb_J_ov_K = 1.308649e-23
+
 # =============================
 # First Stage Derived Constants
 # =============================
@@ -43,6 +46,13 @@ const Rinf_1_ov_m = me_kg * c_m_ov_s * α^2 / (2 * h_Js)
 # =======================
 # UNIT CONVERSION factors
 # =======================
+
+# MULTIPLY with a frequency in [10^12*tr/s] to convert into  
+const turnTHz_to_eV = 10^(12) * h_Js / e_C
+
+# MULTIPLY with an Energy in [J] to convert into [eV]
+# DIVIDE with an Energy in [eV] to convert into [J]
+const J_to_eV = 1 / e_C
 
 # MULTIPLY with an Energy in [Ryd] to convert into [10^12*tr/s] or equally [THz]
 # ALTERNATIVE: const Ryd_to_turnTHz = c_m_ov_s * Rinf_1_ov_m * 10^(-12)
