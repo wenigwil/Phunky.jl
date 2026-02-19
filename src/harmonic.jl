@@ -117,7 +117,8 @@ struct DensityOfStates
         qedata::qeIfc2Output,
         deconvolution::DeconvData,
         numenergies::Int64,
-        sampling::Tuple{Int64,Int64,Int64},
+        sampling::Tuple{Int64,Int64,Int64};
+        scalebroad::Float64 = 1.0
     )
         numatoms = ebdata.allocations["numatoms"]
 
@@ -127,12 +128,14 @@ struct DensityOfStates
 
         # Get the energies in eV
         energies = harmonic.fullq_freqs * 1e12 * h_Js * J_to_eV
-        # println("Sizzeeeeeeee", size(energies))
-
         energies = reshape(energies, 3 * numatoms * numq)
 
+        velocities = harmonic.velocities * 10^3 * h_Js * J_to_eV
+        # velocities = reshape(velocities, ())
+
+
         cont_energies = collect(range(0.0, maximum(energies) * 1.1, numenergies))
-        energy_spacing = cont_energies[2] - cont_energies[1]
+
 
         density = zeros(Float64, size(cont_energies, 1))
 
@@ -140,7 +143,8 @@ struct DensityOfStates
             density[i] = 0.0
             for j in axes(energies, 1)
                 density[i] +=
-                    δ(cont_energies[i], energies[j]; smearing = energy_spacing / 20)
+                # TODO FIX THIS
+                # δ(cont_energies[i], energies[j]; smearing = smearing_type1(scalebroad, velocities[]))
             end
             density[i] /= (numq)
         end

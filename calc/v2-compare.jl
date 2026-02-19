@@ -34,8 +34,8 @@ cont_freqs =
         0.6031045417E-01,
     ] / Phunky.turnTHz_to_eV
 
-smearing = 5e-5
-sampling = (3, 3, 3)
+smearing = 0.5
+sampling = (12, 12, 12)
 
 ph = Phonons(
     ebdata,

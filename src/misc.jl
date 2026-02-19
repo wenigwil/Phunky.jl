@@ -302,3 +302,15 @@ end
 function bose(E::Float64, kbT::Float64)
     return 1.0 / expm1(E / kbT)
 end
+
+"""
+Smearing parameter as suggested in
+Phys. Rev. B 75, 195121 (2007)
+"""
+function smearing_type1(
+    scalebroad::Float64,
+    velocity::Vector{Float64},
+    spacing::Float64,
+)
+    return scalebroad * LinAlg.abs(velocity) * abs(spacing)
+end
