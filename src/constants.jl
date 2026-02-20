@@ -73,4 +73,6 @@ const nm_to_bohr = 1 / (10^9 * a0_m)
 const dalton_to_2me = mu_kg / (2 * me_kg)
 
 # MULTIPLY with a Velocity in [1/Bohr] to convert into [rad * km / s]
+# [rad * km / s] is the unit of a cross-radial velocity which is the
+# Bahngeschwindigkeit in German
 const Ryd_to_km_ov_s = c_m_ov_s * α / 2 * 10^(-3)

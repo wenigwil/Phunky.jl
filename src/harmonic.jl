@@ -2,6 +2,7 @@ struct LatticeVibrations
     fullq_freqs::Matrix{Float64}
     eigdisplacement::Array{ComplexF64,4}
     velocities::Array{Float64,3}
+    qpoints_cart::Array{Float64,2}
 
     function LatticeVibrations(
         ebdata::ebInputData,
@@ -100,10 +101,12 @@ struct LatticeVibrations
         end
 
         # Convert from the Rydberg Unit System to SI
+        # see in src/constants.jl for the explicit conversion description
         fullq_freqs .*= Ryd_to_turnTHz
         velocities .*= Ryd_to_km_ov_s
+        qpoints_cart .*= nm_to_bohr
 
-        new(fullq_freqs, eigdisplacement, velocities)
+        new(fullq_freqs, eigdisplacement, velocities, qpoints_cart)
     end
 end
 
@@ -118,9 +121,10 @@ struct DensityOfStates
         deconvolution::DeconvData,
         numenergies::Int64,
         sampling::Tuple{Int64,Int64,Int64};
-        scalebroad::Float64 = 1.0
+        scalebroad::Float64 = 1.0,
     )
         numatoms = ebdata.allocations["numatoms"]
+        numbranches = numatoms * 3
 
         qpoints_cryst = sample_cube(sampling)
         numq = size(qpoints_cryst, 1)
@@ -128,23 +132,27 @@ struct DensityOfStates
 
         # Get the energies in eV
         energies = harmonic.fullq_freqs * 1e12 * h_Js * J_to_eV
-        energies = reshape(energies, 3 * numatoms * numq)
+        # Reshape energies into energies[λ]
+        energies = reshape(energies, numbranches * numq)
 
+        # Velocities come in as velocities[iq,ibranch,icart]
         velocities = harmonic.velocities * 10^3 * h_Js * J_to_eV
-        # velocities = reshape(velocities, ())
-
+        # Turn them into velocities[λ,icart]
+        velocities = reshape(velocities, (numbranches * numq, 3))
 
         cont_energies = collect(range(0.0, maximum(energies) * 1.1, numenergies))
 
-
+        # spacing =
         density = zeros(Float64, size(cont_energies, 1))
 
         Threads.@threads for i in axes(cont_energies, 1)
             density[i] = 0.0
-            for j in axes(energies, 1)
-                density[i] +=
-                # TODO FIX THIS
-                # δ(cont_energies[i], energies[j]; smearing = smearing_type1(scalebroad, velocities[]))
+            for λ in axes(energies, 1)
+                density[i] += δ(
+                    cont_energies[i],
+                    energies[λ];
+                    smearing = smearing_type1(scalebroad, velocities[λ, :], spacing),
+                )
             end
             density[i] /= (numq)
         end

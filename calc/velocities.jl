@@ -1,4 +1,5 @@
-using Phunky
+include("../src/Phunky.jl")
+using .Phunky
 using Plots
 
 # Read the system description
@@ -10,7 +11,8 @@ deconvolution = DeconvData(ebdata)
 # Read a quantum espresso ifc2 file
 sodata = qeIfc2Output("examples/espresso.ifc2")
 
-points = Phunky.sample_cube((3, 3, 3))
+# points = Phunky.sample_cube((3, 3, 3))
+points = [0.0, 0.0]
 
 vibr = LatticeVibrations(ebdata, sodata, deconvolution, points)
 

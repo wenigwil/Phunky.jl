@@ -312,5 +312,5 @@ function smearing_type1(
     velocity::Vector{Float64},
     spacing::Float64,
 )
-    return scalebroad * LinAlg.abs(velocity) * abs(spacing)
+    return scalebroad * LinAlg.norm(velocity) * abs(spacing)
 end
