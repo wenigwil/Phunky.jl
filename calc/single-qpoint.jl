@@ -1,14 +1,20 @@
 include("../src/Phunky.jl")
 using .Phunky
 
-ebinput = ebInputData("examples/input.nml")
-deconvolution = DeconvData(ebinput)
-qeinput = qeIfc2Output("examples/espresso.ifc2")
+ebdata = ebInputData("examples/input.nml")
+deconvolution = DeconvData(ebdata)
+sodata = qeIfc2Output("examples/espresso.ifc2")
 
-qpoints_cryst = Phunky.sample_cube((2, 2, 2))
+# qpoints_cryst = Phunky.sample_cube((2, 2, 2))
+qpoints_cryst = [0.5 0.5 0.5]
 
-lattvibr = LatticeVibrations(ebinput, qeinput, deconvolution, qpoints_cryst)
+# lattvibr = LatticeVibrations(ebinput, qeinput, deconvolution, qpoints_cryst)
 
-freqs = lattvibr.fullq_freqs
-velocities = lattvibr.velocities
-qpoints_cart = lattvibr.qpoints_cart
+states = HarmonicStatesData(
+    ebdata,
+    sodata,
+    deconvolution,
+    qpoints_cryst;
+    brillouin_sampling = (2, 2, 2),
+)
+

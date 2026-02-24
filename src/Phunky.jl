@@ -23,6 +23,7 @@ export DensityOfStates
 
 include("state.jl")
 include("anharmonic.jl")
+export HarmonicStatesData
 export Phonons
 export PhaseSpace
 

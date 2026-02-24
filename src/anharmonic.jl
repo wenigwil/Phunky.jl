@@ -9,7 +9,6 @@ struct Phonons
         q1_cryst::Matrix{Float64},
         cont_freqs::Vector{Float64},
         T::Float64,
-        smearing::Float64;
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
     )
 
@@ -100,7 +99,6 @@ struct Phonons
                         λ,
                         cont_freqs[ifreq],
                         kbT,
-                        smearing,
                         states,
                         q2_cart,
                         q3_abso_cart,
@@ -110,6 +108,8 @@ struct Phonons
                         trip2position_j,
                         trip2position_k,
                         numbranches,
+                        reclattvecs,
+                        brillouin_sampling,
                     ) *
                     hbar_Js *
                     J_to_eV *
@@ -126,7 +126,6 @@ function calc_Λ(
     λ::Int64,
     ω::Float64,
     kbT::Float64,
-    smearing::Float64,
     states::HarmonicStatesData,
     q2_cart::Matrix{Float64},
     q3_abso_cart::Array{Float64,3},
@@ -136,6 +135,8 @@ function calc_Λ(
     trip2position_j::Matrix{Float64},
     trip2position_k::Matrix{Float64},
     numbranches::Int64,
+    reclattvecs::Matrix{Float64},
+    sampling::Tuple{Int64,Int64,Int64},
 )::Float64
     numq1 = size(states.q1_cryst, 1)
     numq2 = size(states.q2_cryst, 1)
@@ -149,15 +150,16 @@ function calc_Λ(
 
         ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
 
-        # At every loop-nesting depth we will check if the energy of the 
-        # state at the collective index vanishes. If so, we skip that iteration 
-        # because the scattering rate will diverge in this case.
+        # At every loop-nesting depth we will check if the energy of the state at the
+        # collective index vanishes. If so, we skip that iteration because the 
+        # scattering rate will diverge in this case.
         if iszero(ω′)
             continue
         end
 
         q′ = q2_cart[iq′, :]
         W_λ′ = states.q2_evec[λ′, :, :]
+        v′ = states.q2_velos[λ′, :]
 
         for s′′ in 1:numbranches
             λ′′ = mux2to1(s′′, iq′, numq2)
@@ -175,6 +177,9 @@ function calc_Λ(
             W_λ′′_abso = states.q3_abso_evec[λ′′, :, :, iq]
             W_λ′′_emit = states.q3_emit_evec[λ′′, :, :, iq]
 
+            v′′_abso = states.q3_abso_velos[λ′′, :, iq]
+            v′′_emit = states.q3_emit_velos[λ′′, :, iq]
+
             statistics_abso = begin
                 bose(ω′, kbT) - bose(ω′′_abso, kbT)
             end
@@ -182,6 +187,10 @@ function calc_Λ(
             statistics_emit = begin
                 bose(ω′, kbT) + bose(ω′′_emit, kbT) + 1
             end
+
+            smearing_abso = smearing_type3(v′, v′′_abso, reclattvecs, sampling)
+
+            smearing_emit = smearing_type3(v′, v′′_emit, reclattvecs, sampling)
 
             Λplus = begin
                 statistics_abso / (ω′′_abso * ω′) *
@@ -196,7 +205,7 @@ function calc_Λ(
                     trip2position_j,
                     trip2position_k,
                 ) *
-                δ(ω, ω′′_abso - ω′; smearing)
+                δ(ω, ω′′_abso - ω′; smearing_abso)
             end
 
             Λminus = begin
@@ -212,7 +221,7 @@ function calc_Λ(
                     trip2position_j,
                     trip2position_k,
                 ) *
-                δ(ω, ω′′_emit + ω′; smearing)
+                δ(ω, ω′′_emit + ω′; smearing_emit)
             end
 
             Λ += Λplus + 0.5 * Λminus
@@ -322,18 +331,20 @@ function snap_to_lattvecs!(lattvecs::Matrix{Float64}, positions::Matrix{Float64}
 end
 
 struct PhaseSpace
-    phasespace::Vector{Float64}
+    phasespace::Array{Float64,3}
 
     function PhaseSpace(
         ebdata::ebInputData,
         deconvolution::DeconvData,
         sodata::qeIfc2Output,
         q1_cryst::Matrix{Float64},
-        cont_freqs::Vector{Float64},
-        smearing::Float64;
+        cont_freqs::Vector{Float64};
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (6, 6, 6),
     )
         numatoms = ebdata.allocations["numatoms"]
+        # Lattvecs in Angstroem
+        lattvecs = ebdata.crystal_info["lattvecs"]
+        reclattvecs = calc_reciprocal_lattvecs(lattvecs)
         numbranches = 3 * numatoms
 
         states = HarmonicStatesData(
@@ -348,33 +359,51 @@ struct PhaseSpace
         numq2 = size(states.q2_cryst, 1)
         numfreq = size(cont_freqs, 1)
 
-        phasespace = Vector{Float64}(undef, numfreq)
+        @info "anharmonic.jl: Calculating phasespace for every frequency..."
+        phasespace = Array{Float64}(undef, numq1, numbranches, numfreq)
         for ifreq in 1:numfreq
-            ω = cont_freqs[ifreq]
+            ω = cont_freqs[ifreq] * turnTHz_to_eV
 
-            Λ = 0.0
             for λ in axes(states.q1_evec, 1)
-                _, iq = demux1to2(λ, numq1)
+                s, iq = demux1to2(λ, numq1)
 
+                Λ = 0.0
                 for λ′ in axes(states.q2_evec, 1)
                     _, iq′ = demux1to2(λ′, numq2)
 
                     ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
+                    v′ = states.q2_velos[λ′, :]
 
                     for s′′ in 1:numbranches
                         λ′′ = mux2to1(s′′, iq′, numq2)
 
                         ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
                         ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
+                        v′′_abso = states.q3_abso_velos[λ′, :, iq]
+                        v′′_emit = states.q3_emit_velos[λ′, :, iq]
 
-                        Λplus = δ(ω, ω′′_abso - ω′; smearing)
+                        smearing_abso = smearing_type3(
+                            v′,
+                            v′′_abso,
+                            reclattvecs,
+                            brillouin_sampling,
+                        )
 
-                        Λminus = δ(ω, ω′′_emit + ω′; smearing)
+                        smearing_emit = smearing_type3(
+                            v′,
+                            v′′_emit,
+                            reclattvecs,
+                            brillouin_sampling,
+                        )
+
+                        Λplus = δ(ω, ω′′_abso - ω′, 100000 * smearing_abso)
+
+                        Λminus = δ(ω, ω′′_emit + ω′, 100000 * smearing_emit)
 
                         Λ += Λplus + 0.5 * Λminus
                     end
                 end
-                phasespace[ifreq] = Λ
+                phasespace[iq, s, ifreq] = (Λ / numq2)
             end
         end
 

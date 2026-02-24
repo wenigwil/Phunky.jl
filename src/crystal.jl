@@ -5,8 +5,8 @@ Calculate the reciprocal lattice vectors from a collection of direct lattice vec
 
 # Arguments
 
-  - `lattvecs::Matrix{Float64}`: Collection of direct lattice vectors. `lattvecs[:,i]`
-    should yield the `i`-th lattice vector.
+  - `lattvecs::Matrix{Float64}`: Collection of direct lattice vectors.
+    `lattvecs[:,i]` should yield the `i`-th lattice vector.
 
 # Output
 

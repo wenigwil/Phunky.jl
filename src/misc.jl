@@ -293,10 +293,10 @@ function demux1to2(k::Int64, maxfast::Int64)::Tuple{Int64,Int64}
 end
 
 """
-Very basic delta function with fixed smearing.
+Gaussian delta function approximation.
 """
-function δ(x::Float64, a::Float64; smearing::Float64)
-    return sqrt(1 / (π * smearing)) * exp.(-(a - x)^2 / smearing)
+function δ(x::Float64, a::Float64, omega::Float64)
+    return (1 / (sqrt(2 * pi) * omega)) * exp(-(a - x)^2 / (2 * omega^2))
 end
 
 function bose(E::Float64, kbT::Float64)
@@ -313,4 +313,20 @@ function smearing_type1(
     spacing::Float64,
 )
     return scalebroad * LinAlg.norm(velocity) * abs(spacing)
+end
+
+function smearing_type3(
+    v_λ′::Vector{Float64},
+    v_λ′′::Vector{Float64},
+    reclattvecs::Matrix{Float64},
+    sampling::Tuple{Int64,Int64,Int64},
+)::Float64
+    prefac = (hbar_Js * 10^12 * J_to_eV) / sqrt(12)
+
+    aux = 0.0
+    for μ in axes(reclattvecs, 2)
+        aux += ((1 / sampling[μ]) * LinAlg.dot(v_λ′ - v_λ′′, reclattvecs[:, μ]))^2
+    end
+
+    return sqrt(aux) * prefac
 end

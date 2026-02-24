@@ -2,7 +2,6 @@ struct LatticeVibrations
     fullq_freqs::Matrix{Float64}
     eigdisplacement::Array{ComplexF64,4}
     velocities::Array{Float64,3}
-    qpoints_cart::Array{Float64,2}
 
     function LatticeVibrations(
         ebdata::ebInputData,
@@ -80,6 +79,7 @@ struct LatticeVibrations
                         )
                     end
                 end
+                # velocities[iq, branch, α]
                 velocities[iq, ibranch, :] ./= (2 * freqs[ibranch])
             end
 
@@ -87,11 +87,13 @@ struct LatticeVibrations
             # atomindex. In the muxing the cartesian index was the faster one so it 
             # will appear in as the first index of the new array after the branch 
             # index
-            eigvecs = reshape(permutedims(eigvecs), (3 * numatoms, 3, numatoms))
+            # eigvecs[branch, α, k] where α is cartesian index and k the atomindex
+            eigvecs = reshape(permutedims(eigvecs), (numbranches, 3, numatoms))
 
             # Eigenvalues are the squared eigenfrequencies of the system
             fullq_freqs[iq, :] = freqs
             # According to Togo eq (6) and (7) the eigvecs just stay normalized
+            # eigdisplacement[iq, branch, α, k]
             eigdisplacement[iq, :, :, :] = eigvecs
 
             if iszero(qpoints_cryst[iq, :])
@@ -104,9 +106,8 @@ struct LatticeVibrations
         # see in src/constants.jl for the explicit conversion description
         fullq_freqs .*= Ryd_to_turnTHz
         velocities .*= Ryd_to_km_ov_s
-        qpoints_cart .*= nm_to_bohr
 
-        new(fullq_freqs, eigdisplacement, velocities, qpoints_cart)
+        new(fullq_freqs, eigdisplacement, velocities)
     end
 end
 

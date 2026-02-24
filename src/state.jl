@@ -11,6 +11,10 @@ struct HarmonicStatesData
     q2_evec::Array{ComplexF64,3}
     q3_abso_evec::Array{ComplexF64,4}
     q3_emit_evec::Array{ComplexF64,4}
+    q1_velos::Matrix{Float64}
+    q2_velos::Matrix{Float64}
+    q3_abso_velos::Array{Float64,3}
+    q3_emit_velos::Array{Float64,3}
 
     function HarmonicStatesData(
         ebdata::ebInputData,
@@ -28,7 +32,10 @@ struct HarmonicStatesData
         numq3 = numq1 * numq2
         numallq = numq1 + numq2 + 2 * numq3
 
-        # @info "Building q3 points for emission and absorption..." numq1 numq2 numq3
+        @info """
+        state.jl: Building the Emission and Absorption q-point sets...
+        """ numq1 numq2 numq3
+
         q3_emit_cryst = Matrix{Float64}(undef, (numq3, 3))
         q3_abso_cryst = Matrix{Float64}(undef, (numq3, 3))
         fill_q3!(q1_cryst, q2_cryst, q3_abso_cryst, q3_emit_cryst)
@@ -36,56 +43,67 @@ struct HarmonicStatesData
         # Stack all qpoints to calculate everything in one go
         allq = vcat(q1_cryst, q2_cryst, q3_emit_cryst, q3_abso_cryst)
 
-        # @info "Calculating harmonic properties for all q-points..." numq3 numallq
+        @info "states.jl: Calculating Harmonic Properties for all q-points" numallq
         harmonic = LatticeVibrations(ebdata, sodata, deconvolution, allq)
 
+        @info "state.jl: Slicing and Reshaping the harmonic data..."
         q3_emit_cryst = reshape(q3_emit_cryst, (numq2, numq1, 3))
         q3_emit_cryst = permutedims(q3_emit_cryst, (1, 3, 2))
 
         q3_abso_cryst = reshape(q3_abso_cryst, (numq2, numq1, 3))
         q3_abso_cryst = permutedims(q3_abso_cryst, (1, 3, 2))
 
-        # @info "Sizes of crystal coordinate qpoints" size(q3_abso_cryst) size(
-        #     q3_emit_cryst,
-        # )
         # Define the ends of all qpoint-set data
         # End for q2 data
         numq12 = numq1 + numq2
         # End for q3_abso data
         numq123 = numq12 + numq3
 
-        # Split it apart again
+        # Slicing away Frequencies
         q1_freqs = harmonic.fullq_freqs[1:numq1, :]
         q2_freqs = harmonic.fullq_freqs[(numq1 + 1):numq12, :]
         q3_emit_freqs = harmonic.fullq_freqs[(numq12 + 1):numq123, :]
         q3_abso_freqs = harmonic.fullq_freqs[(numq123 + 1):numallq, :]
 
-        # FREQUENCY RESHAPING goes from ω[iq,branch] to ω[λ]
-        q1_freqs = reshape(q1_freqs, (numq1 * numbranch))
-        q2_freqs = reshape(q2_freqs, (numq2 * numbranch))
-
+        # Slicing away Eigenvectors
         q1_eigvecs = harmonic.eigdisplacement[1:numq1, :, :, :]
         q2_eigvecs = harmonic.eigdisplacement[(numq1 + 1):numq12, :, :, :]
         q3_emit_eigvecs = harmonic.eigdisplacement[(numq12 + 1):numq123, :, :, :]
         q3_abso_eigvecs = harmonic.eigdisplacement[(numq123 + 1):numallq, :, :, :]
+
+        # Slicing away Velocities
+        q1_velos = harmonic.velocities[1:numq1, :, :]
+        q2_velos = harmonic.velocities[(numq1 + 1):numq12, :, :]
+        q3_emit_velos = harmonic.velocities[(numq12 + 1):numq123, :, :]
+        q3_abso_velos = harmonic.velocities[(numq123 + 1):numallq, :, :]
+
+        # FREQUENCY RESHAPING goes from ω[iq,branch] to ω[λ]
+        q1_freqs = reshape(q1_freqs, (numq1 * numbranch))
+        q2_freqs = reshape(q2_freqs, (numq2 * numbranch))
 
         # EIGENVECTOR RESHAPING goes from eigvecs[iq,branch,α,k] to eigvecs[λ,α,k]
         # where λ conforms with mux2to1(s,iq,numq)
         q1_eigvecs = reshape(q1_eigvecs, (numq1 * numbranch, 3, numatoms))
         q2_eigvecs = reshape(q2_eigvecs, (numq2 * numbranch, 3, numatoms))
 
-        # @info "Beginning reshaping of q3 points..."
+        # VELOCITY RESHAPING goes from velos[iq,branch,α] to velos[λ,α]
+        q1_velos = reshape(q1_velos, (numq1 * numbranch, 3))
+        q2_velos = reshape(q2_velos, (numq2 * numbranch, 3))
+
         # We need to demux the fastest index in the q3_abso and q3_emit data which 
         # was the result of muxing iq1 (slow) and iq2 (fast). See the docs on 
         # fill_q3!()
         # q3_freqs[iq3, branch] to q3_freqs[λ′, iq1]
         q3_emit_freqs = reshape(q3_emit_freqs, (numq2, numq1, numbranch))
-        q3_abso_freqs = reshape(q3_abso_freqs, (numq2, numq1, numbranch))
         q3_emit_freqs = permutedims(q3_emit_freqs, (1, 3, 2))
-        q3_abso_freqs = permutedims(q3_abso_freqs, (1, 3, 2))
         q3_emit_freqs = reshape(q3_emit_freqs, (numq2 * numbranch, numq1))
+
+        q3_abso_freqs = reshape(q3_abso_freqs, (numq2, numq1, numbranch))
+        q3_abso_freqs = permutedims(q3_abso_freqs, (1, 3, 2))
         q3_abso_freqs = reshape(q3_abso_freqs, (numq2 * numbranch, numq1))
 
+        # We do essentially the same with the eigenvectors. Pushing iq1 into the 
+        # slowest index
         # q3_eigvecs[iq3, branch, α, k] to q3_eigvecs[λ′, α, k, iq1]
         q3_emit_eigvecs =
             reshape(q3_emit_eigvecs, (numq2, numq1, numbranch, 3, numatoms))
@@ -98,6 +116,16 @@ struct HarmonicStatesData
         q3_abso_eigvecs = permutedims(q3_abso_eigvecs, (1, 3, 4, 5, 2))
         q3_abso_eigvecs =
             reshape(q3_abso_eigvecs, (numq2 * numbranch, 3, numatoms, numq1))
+
+        # Again the same here with the velocities
+        # q3_velos[iq, branch, α] to q3_velos[λ′, α, iq1]
+        q3_emit_velos = reshape(q3_emit_velos, (numq2, numq1, numbranch, 3))
+        q3_emit_velos = permutedims(q3_emit_velos, (1, 4, 3, 2))
+        q3_emit_velos = reshape(q3_emit_velos, (numq2 * numbranch, 3, numq1))
+
+        q3_abso_velos = reshape(q3_abso_velos, (numq2, numq1, numbranch, 3))
+        q3_abso_velos = permutedims(q3_abso_velos, (1, 4, 3, 2))
+        q3_abso_velos = reshape(q3_abso_velos, (numq2 * numbranch, 3, numq1))
 
         new(
             q1_cryst,
@@ -112,6 +140,10 @@ struct HarmonicStatesData
             q2_eigvecs,
             q3_abso_eigvecs,
             q3_emit_eigvecs,
+            q1_velos,
+            q2_velos,
+            q3_abso_velos,
+            q3_emit_velos,
         )
     end
 end
