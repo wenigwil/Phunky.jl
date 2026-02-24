@@ -331,7 +331,7 @@ function snap_to_lattvecs!(lattvecs::Matrix{Float64}, positions::Matrix{Float64}
 end
 
 struct PhaseSpace
-    phasespace::Array{Float64,3}
+    phasespace::Matrix{Float64}
 
     function PhaseSpace(
         ebdata::ebInputData,
@@ -360,12 +360,14 @@ struct PhaseSpace
         numfreq = size(cont_freqs, 1)
 
         @info "anharmonic.jl: Calculating phasespace for every frequency..."
-        phasespace = Array{Float64}(undef, numq1, numbranches, numfreq)
-        for ifreq in 1:numfreq
+        phasespace = Array{Float64}(undef, numq1, numfreq)
+        Threads.@threads for ifreq in 1:numfreq
+            # println("At ifreq=", ifreq, " out of", numfreq)
+            # Just for now
             ω = cont_freqs[ifreq] * turnTHz_to_eV
 
             for λ in axes(states.q1_evec, 1)
-                s, iq = demux1to2(λ, numq1)
+                _, iq = demux1to2(λ, numq1)
 
                 Λ = 0.0
                 for λ′ in axes(states.q2_evec, 1)
@@ -396,14 +398,15 @@ struct PhaseSpace
                             brillouin_sampling,
                         )
 
-                        Λplus = δ(ω, ω′′_abso - ω′, 100000 * smearing_abso)
+                        Λplus = δ(ω, ω′′_abso - ω′, smearing_abso)
 
-                        Λminus = δ(ω, ω′′_emit + ω′, 100000 * smearing_emit)
+                        Λminus = δ(ω, ω′′_emit + ω′, smearing_emit)
 
-                        Λ += Λplus + 0.5 * Λminus
+                        # Λ += Λplus + 0.5 * Λminus
+                        Λ += Λminus
                     end
                 end
-                phasespace[iq, s, ifreq] = (Λ / numq2)
+                phasespace[iq, ifreq] = (Λ / numq2)
             end
         end
 
