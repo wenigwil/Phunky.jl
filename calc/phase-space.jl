@@ -19,9 +19,10 @@ sodata = qeIfc2Output("examples/espresso.ifc2")
 
 q1_cryst = [0.0 0.0 0.25]
 
-ω_max = 25 * 1.2
+# We give the frequencies in THz
+ω_max = 35
 ω_min = 0.01
-numfreqs = 100
+numfreqs = 400
 ω_cont = collect(range(ω_min, ω_max, numfreqs))
 
 sampling = (24, 24, 24)
