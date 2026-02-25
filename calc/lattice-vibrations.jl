@@ -2,6 +2,7 @@ include("../src/Phunky.jl")
 using .Phunky
 
 import Plots;
+using LatexStrings
 import LinearAlgebra as LinAlg
 using BenchmarkTools;
 Plots.pgfplotsx();
@@ -22,18 +23,6 @@ seek_path_points = [
 seek_path_1 = seek_path_points[[1, 6, 4], :]
 seek_path_2 = seek_path_points[[2, 1, 3, 5, 6, 7], :]
 
-# Read-in the main description of the system
-@info "Reading input.nml..."
-ebinput = ebInputData("examples/input.nml")
-
-# Construct a ifc2-deconvolution based on the system description
-@info "Calculating deconvolution..."
-deconvolution = DeconvData(ebinput)
-
-# Read-in the second order force-constants
-@info "Reading ifc2..."
-qeinput = qeIfc2Output("examples/espresso.ifc2")
-
 # Construct a qpoint list from a path and supply it with things to make it plottable
 @info "Building path..."
 
@@ -47,6 +36,18 @@ sympath = Sympath(
 
 print("Generated a path of length", size(sympath.qpoints), "\n")
 
+# Read-in the main description of the system
+@info "Reading input.nml..."
+ebinput = ebInputData("examples/input.nml")
+
+# Construct a ifc2-deconvolution based on the system description
+@info "Calculating deconvolution..."
+deconvolution = DeconvData(ebinput)
+
+# Read-in the second order force-constants
+@info "Reading ifc2..."
+qeinput = qeIfc2Output("examples/espresso.ifc2")
+
 # Main computation of the harmonic phonon properties
 @info "Calculating Lattice Vibrations..."
 lattvibr = LatticeVibrations(ebinput, qeinput, deconvolution, sympath.qpoints)
@@ -54,15 +55,6 @@ lattvibr = LatticeVibrations(ebinput, qeinput, deconvolution, sympath.qpoints)
 # Making the names alittle shorter
 distances = sympath.distances
 freqs = lattvibr.fullq_freqs
-velocities = lattvibr.velocities
-
-speeds = Array{Float64,2}(undef, size(velocities, 1), size(velocities, 2))
-
-for iq in axes(velocities, 1)
-    for ibranch in axes(velocities, 2)
-        speeds[iq, ibranch] = LinAlg.norm(velocities[iq, ibranch, :])
-    end
-end
 
 # Polish for the plot
 extra_dict =
@@ -81,7 +73,6 @@ p = Plots.plot(
     lw = 0.7,
     xticks = (sympath.xticks_pos, sympath.xticks_labels),
     ylabel = "Frequency ω [THz]",
-    tex_output_standalone = true,
     xtickfontsize = 12,
     ytickfontsize = 12,
     # extra_kwargs = Dict(:subplot => extra_dict),

@@ -328,5 +328,8 @@ function smearing_type3(
         aux += ((1 / sampling[μ]) * LinAlg.dot(v_λ′ - v_λ′′, reclattvecs[:, μ]))^2
     end
 
-    return sqrt(aux) * prefac
+    aux = sqrt(aux) * prefac
+    tiny = 1e-9
+
+    return max(tiny, aux)
 end

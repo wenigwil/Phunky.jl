@@ -360,7 +360,7 @@ struct PhaseSpace
         numfreq = size(cont_freqs, 1)
 
         @info "anharmonic.jl: Calculating phasespace for every frequency..."
-        phasespace = Array{Float64}(undef, numq1, numfreq)
+        phasespace = Array{Float64}(undef, numfreq, numq1)
         Threads.@threads for ifreq in 1:numfreq
             # println("At ifreq=", ifreq, " out of", numfreq)
             # Just for now
@@ -402,14 +402,13 @@ struct PhaseSpace
 
                         Λminus = δ(ω, ω′′_emit + ω′, smearing_emit)
 
-                        # Λ += Λplus + 0.5 * Λminus
-                        Λ += Λminus
+                        Λ += Λplus + 0.5 * Λminus
                     end
                 end
-                phasespace[iq, ifreq] = (Λ / numq2)
+                phasespace[ifreq, iq] = (Λ / numq2)
             end
         end
 
-        new(phasespace / numq2)
+        new(phasespace)
     end
 end
