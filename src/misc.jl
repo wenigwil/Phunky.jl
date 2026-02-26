@@ -308,11 +308,21 @@ Smearing parameter as suggested in
 Phys. Rev. B 75, 195121 (2007)
 """
 function smearing_type1(
-    scalebroad::Float64,
-    velocity::Vector{Float64},
-    spacing::Float64,
+    v_λ′::Vector{Float64},
+    reclattvecs::Matrix{Float64},
+    sampling::Tuple{Int64,Int64,Int64},
 )
-    return scalebroad * LinAlg.norm(velocity) * abs(spacing)
+    prefac = (hbar_Js * 10^12 * J_to_eV) / sqrt(12)
+
+    aux = 0.0
+    for μ in axes(reclattvecs, 2)
+        aux += ((1 / sampling[μ]) * LinAlg.dot(v_λ′, reclattvecs[:, μ]))^2
+    end
+
+    aux = sqrt(aux) * prefac
+    tiny = 1e-9
+
+    return max(tiny, aux)
 end
 
 function smearing_type3(

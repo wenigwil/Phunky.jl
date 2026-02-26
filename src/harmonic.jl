@@ -118,42 +118,44 @@ struct DensityOfStates
 
     function DensityOfStates(
         ebdata::ebInputData,
-        qedata::qeIfc2Output,
+        sodata::qeIfc2Output,
         deconvolution::DeconvData,
         numenergies::Int64,
         sampling::Tuple{Int64,Int64,Int64};
         scalebroad::Float64 = 1.0,
     )
         numatoms = ebdata.allocations["numatoms"]
+        lattvecs = ebdata.crystal_info["lattvecs"]
+        reclattvecs = calc_reciprocal_lattvecs(lattvecs)
         numbranches = numatoms * 3
 
         qpoints_cryst = sample_cube(sampling)
         numq = size(qpoints_cryst, 1)
-        harmonic = LatticeVibrations(ebdata, qedata, deconvolution, qpoints_cryst)
+        harmonic = LatticeVibrations(ebdata, sodata, deconvolution, qpoints_cryst)
 
         # Get the energies in eV
-        energies = harmonic.fullq_freqs * 1e12 * h_Js * J_to_eV
+        energies = harmonic.fullq_freqs * turnTHz_to_eV
         # Reshape energies into energies[λ]
         energies = reshape(energies, numbranches * numq)
 
         # Velocities come in as velocities[iq,ibranch,icart]
-        velocities = harmonic.velocities * 10^3 * h_Js * J_to_eV
+        velocities = harmonic.velocities
         # Turn them into velocities[λ,icart]
         velocities = reshape(velocities, (numbranches * numq, 3))
 
         cont_energies = collect(range(0.0, maximum(energies) * 1.1, numenergies))
 
-        # spacing =
         density = zeros(Float64, size(cont_energies, 1))
 
         Threads.@threads for i in axes(cont_energies, 1)
             density[i] = 0.0
+            if iszero(cont_energies[i])
+                continue
+            end
             for λ in axes(energies, 1)
-                density[i] += δ(
-                    cont_energies[i],
-                    energies[λ];
-                    smearing = smearing_type1(scalebroad, velocities[λ, :], spacing),
-                )
+                v_λ = velocities[λ, :]
+                smearing = smearing_type1(v_λ, reclattvecs, sampling)
+                density[i] += δ(cont_energies[i], energies[λ], scalebroad * smearing)
             end
             density[i] /= (numq)
         end
