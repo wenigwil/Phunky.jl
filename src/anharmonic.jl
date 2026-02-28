@@ -1,5 +1,5 @@
 struct Phonons
-    scattering_rate::Array{Float64,3}
+    scattering_rate::Array{Float64,2}
 
     function Phonons(
         ebdata::ebInputData,
@@ -7,7 +7,6 @@ struct Phonons
         sodata::qeIfc2Output,
         todata::Ifc3Output,
         q1_cryst::Matrix{Float64},
-        cont_freqs::Vector{Float64},
         T::Float64;
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
     )
@@ -75,49 +74,46 @@ struct Phonons
 
         numq1 = size(q1_cryst, 1)
         numq2 = size(states.q2_cryst, 1)
-        numfreq = size(cont_freqs, 1)
 
         @info """
         anharmonic.jl: Calculating scattering rates for all λ and frequencies...
         """
         # Calculating the scattering rates
-        scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, 3 * numatoms))
-        Threads.@threads for ifreq in 1:numfreq
-            ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
+        scattering_rate = Array{Float64,2}(undef, (numq1, 3 * numatoms))
 
-            for λ in axes(states.q1_evec, 1)
-                s1, iq1 = demux1to2(λ, numq1)
-                ω = states.q1_freqs[λ] * turnTHz_to_eV
+        for λ in axes(states.q1_evec, 1)
+            s1, iq1 = demux1to2(λ, numq1)
+            println("At q=", iq1, " s1=", s1)
+            ω = states.q1_freqs[λ] * turnTHz_to_eV
+            ω_cont = states.q1_freqs[λ] * turnTHz_to_eV
+            # At every loop-nesting depth we will check if the energy of the 
+            # state at the collective index vanishes. If so, we skip that 
+            # iteration because the scattering rate will diverge in this case.
+            if iszero(ω)
+                scattering_rate[iq1, s1] = 0.0
+                continue
+            end
 
-                # At every loop-nesting depth we will check if the energy of the 
-                # state at the collective index vanishes. If so, we skip that 
-                # iteration because the scattering rate will diverge in this case.
-                if iszero(ω)
-                    scattering_rate[ifreq, iq1, s1] = 0.0
-                    continue
-                end
-
-                scattering_rate[ifreq, iq1, s1] = begin
-                    calc_Λ(
-                        λ,
-                        ω_cont,
-                        kbT,
-                        states,
-                        q2_cart,
-                        q3_abso_cart,
-                        q3_emit_cart,
-                        ifc3_tensor,
-                        trip2atomindeces,
-                        trip2position_j,
-                        trip2position_k,
-                        numbranches,
-                        reclattvecs,
-                        brillouin_sampling,
-                    ) *
-                    hbar_Js *
-                    J_to_eV *
-                    pi / (4 * numq2 * ω)
-                end
+            scattering_rate[iq1, s1] = begin
+                calc_Λ(
+                    λ,
+                    ω_cont,
+                    kbT,
+                    states,
+                    q2_cart,
+                    q3_abso_cart,
+                    q3_emit_cart,
+                    ifc3_tensor,
+                    trip2atomindeces,
+                    trip2position_j,
+                    trip2position_k,
+                    numbranches,
+                    reclattvecs,
+                    brillouin_sampling,
+                ) *
+                hbar_Js *
+                J_to_eV *
+                pi / (4 * numq2 * ω)
             end
         end
 
@@ -148,7 +144,7 @@ function calc_Λ(
     W_λ = states.q1_evec[λ, :, :]
 
     Λ = 0.0
-    for λ′ in axes(states.q2_evec, 1)
+    Threads.@threads for λ′ in axes(states.q2_evec, 1)
         _, iq′ = demux1to2(λ′, numq2)
 
         ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
