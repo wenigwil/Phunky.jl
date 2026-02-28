@@ -43,7 +43,7 @@ struct HarmonicStatesData
         # Stack all qpoints to calculate everything in one go
         allq = vcat(q1_cryst, q2_cryst, q3_emit_cryst, q3_abso_cryst)
 
-        @info "states.jl: Calculating Harmonic Properties for all q-points" numallq
+        @info "state.jl: Calculating Harmonic Properties for all q-points" numallq
         harmonic = LatticeVibrations(ebdata, sodata, deconvolution, allq)
 
         @info "state.jl: Slicing and Reshaping the harmonic data..."

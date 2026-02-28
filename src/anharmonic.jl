@@ -8,7 +8,7 @@ struct Phonons
         todata::Ifc3Output,
         q1_cryst::Matrix{Float64},
         cont_freqs::Vector{Float64},
-        T::Float64,
+        T::Float64;
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (30, 30, 30),
     )
 
@@ -18,20 +18,20 @@ struct Phonons
         # TODO: What do we do about the units of the atomic masses?
         type2mass = ebdata.crystal_info["masses"]
         atindex2type = ebdata.crystal_info["atomtypes"]
-        # The lattice vectors are in nm when they come out of the input.nml but we 
-        # will do everything in Angstrom around here!
-        lattvecs = ebdata.crystal_info["lattvecs"] * 10
+        # Lattice Vectors come in [nm]
+        lattvecs = ebdata.crystal_info["lattvecs"]
         reclattvecs = calc_reciprocal_lattvecs(lattvecs)
         # Calculate this factor in order to avoid recalculation during the loops
         # Temperature comes into here in [K]
         kbT = kb_J_ov_K * J_to_eV * T
 
-        # Third Order Force Constants Data
-        ifc3_tensor = todata.properties["ifc3_tensor"]
-        # Extract the data to convert the triplet index into...
-        # Positions in Angstrom
-        trip2position_j = todata.properties["trip2position_j"]
-        trip2position_k = todata.properties["trip2position_k"]
+        # Third Order Interatomic Force Constants
+        # We convert from [eV/Angstrom^3] to [eV/nm^3]
+        ifc3_tensor = todata.properties["ifc3_tensor"] .* 1000
+        # Extract the data mapping the triplet index to...
+        # Positions in [Angstrom]. We convert to [nm]
+        trip2position_j = todata.properties["trip2position_j"] ./ 10
+        trip2position_k = todata.properties["trip2position_k"] ./ 10
         # Atomic Indices of the whole triplet
         trip2atomindeces = todata.properties["trip2atomindices"]
 
@@ -52,7 +52,6 @@ struct Phonons
         snap_to_lattvecs!(lattvecs, trip2position_k)
         snap_to_lattvecs!(lattvecs, trip2position_j)
 
-        # @info "Building HarmonicStatesData..."
         # Calculate and reshape the frequencies and eigenvectors of 3 phonons by a 
         # given sampling of the brillouin zone.
         states = HarmonicStatesData(
@@ -63,7 +62,7 @@ struct Phonons
             brillouin_sampling,
         )
 
-        # Convert needed q-points into cartesian coordinates
+        # Convert q-point for all states into cartesian coordinates
         q2_cart = states.q2_cryst * permutedims(reclattvecs)
         q3_abso_cart = Array{Float64,3}(undef, size(states.q3_abso_cryst))
         q3_emit_cart = Array{Float64,3}(undef, size(states.q3_emit_cryst))
@@ -78,12 +77,16 @@ struct Phonons
         numq2 = size(states.q2_cryst, 1)
         numfreq = size(cont_freqs, 1)
 
-        # @info "Beginning scattering rate calculations..."
+        @info """
+        anharmonic.jl: Calculating scattering rates for all λ and frequencies...
+        """
         # Calculating the scattering rates
         scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, 3 * numatoms))
-        for λ in axes(states.q1_evec, 1)
-            s1, iq1 = demux1to2(λ, numq1)
-            for ifreq in 1:numfreq
+        Threads.@threads for ifreq in 1:numfreq
+            ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
+
+            for λ in axes(states.q1_evec, 1)
+                s1, iq1 = demux1to2(λ, numq1)
                 ω = states.q1_freqs[λ] * turnTHz_to_eV
 
                 # At every loop-nesting depth we will check if the energy of the 
@@ -97,7 +100,7 @@ struct Phonons
                 scattering_rate[ifreq, iq1, s1] = begin
                     calc_Λ(
                         λ,
-                        cont_freqs[ifreq],
+                        ω_cont,
                         kbT,
                         states,
                         q2_cart,
@@ -124,7 +127,7 @@ end
 
 function calc_Λ(
     λ::Int64,
-    ω::Float64,
+    ω_cont::Float64,
     kbT::Float64,
     states::HarmonicStatesData,
     q2_cart::Matrix{Float64},
@@ -166,6 +169,8 @@ function calc_Λ(
 
             ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
             ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
+            v′′_abso = states.q3_abso_velos[λ′, :, iq]
+            v′′_emit = states.q3_emit_velos[λ′, :, iq]
 
             if iszero(ω′′_abso) || iszero(ω′′_emit)
                 continue
@@ -176,9 +181,6 @@ function calc_Λ(
 
             W_λ′′_abso = states.q3_abso_evec[λ′′, :, :, iq]
             W_λ′′_emit = states.q3_emit_evec[λ′′, :, :, iq]
-
-            v′′_abso = states.q3_abso_velos[λ′′, :, iq]
-            v′′_emit = states.q3_emit_velos[λ′′, :, iq]
 
             statistics_abso = begin
                 bose(ω′, kbT) - bose(ω′′_abso, kbT)
@@ -205,7 +207,7 @@ function calc_Λ(
                     trip2position_j,
                     trip2position_k,
                 ) *
-                δ(ω, ω′′_abso - ω′; smearing_abso)
+                δ(ω_cont, ω′′_abso - ω′, smearing_abso)
             end
 
             Λminus = begin
@@ -221,11 +223,10 @@ function calc_Λ(
                     trip2position_j,
                     trip2position_k,
                 ) *
-                δ(ω, ω′′_emit + ω′; smearing_emit)
+                δ(ω_cont, ω′′_emit + ω′, smearing_emit)
             end
 
             Λ += Λplus + 0.5 * Λminus
-            println(Λ)
         end
     end
     return Λ
@@ -265,7 +266,7 @@ function calc_V2plus(
                         conj(W_λ′′[α′′, trip2atomindices[itrip, 3]]) *
                         ifc3_tensor[itrip, α, α′, α′′] *
                         exp(im * LinAlg.dot(q′, trip2position_j[itrip, :])) *
-                        exp(-im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
+                        exp(im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
                     end
                 end
             end
@@ -297,8 +298,8 @@ function calc_V2minus(
                         conj(W_λ′[α′, trip2atomindices[itrip, 2]]) *
                         conj(W_λ′′[α′′, trip2atomindices[itrip, 3]]) *
                         ifc3_tensor[itrip, α, α′, α′′] *
-                        exp(-im * LinAlg.dot(q′, trip2position_j[itrip, :])) *
-                        exp(-im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
+                        exp(im * LinAlg.dot(q′, trip2position_j[itrip, :])) *
+                        exp(im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
                     end
                 end
             end
@@ -362,8 +363,6 @@ struct PhaseSpace
         @info "anharmonic.jl: Calculating phasespace for every frequency..."
         phasespace = Array{Float64}(undef, numfreq, numq1)
         Threads.@threads for ifreq in 1:numfreq
-            # println("At ifreq=", ifreq, " out of", numfreq)
-            # Just for now
             ω = cont_freqs[ifreq] * turnTHz_to_eV
 
             for λ in axes(states.q1_evec, 1)
