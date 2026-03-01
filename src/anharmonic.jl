@@ -334,8 +334,7 @@ struct PhaseSpace
         ebdata::ebInputData,
         deconvolution::DeconvData,
         sodata::qeIfc2Output,
-        q1_cryst::Matrix{Float64},
-        cont_freqs::Vector{Float64};
+        q1_cryst::Matrix{Float64};
         brillouin_sampling::Tuple{Int64,Int64,Int64} = (6, 6, 6),
     )
         numatoms = ebdata.allocations["numatoms"]
@@ -354,54 +353,42 @@ struct PhaseSpace
 
         numq1 = size(q1_cryst, 1)
         numq2 = size(states.q2_cryst, 1)
-        numfreq = size(cont_freqs, 1)
 
         @info "anharmonic.jl: Calculating phasespace for every frequency..."
-        phasespace = Array{Float64}(undef, numfreq, numq1)
-        Threads.@threads for ifreq in 1:numfreq
-            ω = cont_freqs[ifreq] * turnTHz_to_eV
+        phasespace = Array{Float64}(undef, numq1, numbranches)
+        Threads.@threads for λ in axes(states.q1_evec, 1)
+            s, iq = demux1to2(λ, numq1)
+            ω = states.q1_freqs[λ] * turnTHz_to_eV
 
-            for λ in axes(states.q1_evec, 1)
-                _, iq = demux1to2(λ, numq1)
+            Λ = 0.0
+            for λ′ in axes(states.q2_evec, 1)
+                _, iq′ = demux1to2(λ′, numq2)
 
-                Λ = 0.0
-                for λ′ in axes(states.q2_evec, 1)
-                    _, iq′ = demux1to2(λ′, numq2)
+                ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
+                v′ = states.q2_velos[λ′, :]
 
-                    ω′ = states.q2_freqs[λ′] * turnTHz_to_eV
-                    v′ = states.q2_velos[λ′, :]
+                for s′′ in 1:numbranches
+                    λ′′ = mux2to1(s′′, iq′, numq2)
 
-                    for s′′ in 1:numbranches
-                        λ′′ = mux2to1(s′′, iq′, numq2)
+                    ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
+                    ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
+                    v′′_abso = states.q3_abso_velos[λ′, :, iq]
+                    v′′_emit = states.q3_emit_velos[λ′, :, iq]
 
-                        ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
-                        ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
-                        v′′_abso = states.q3_abso_velos[λ′, :, iq]
-                        v′′_emit = states.q3_emit_velos[λ′, :, iq]
+                    smearing_abso =
+                        smearing_type3(v′, v′′_abso, reclattvecs, brillouin_sampling)
 
-                        smearing_abso = smearing_type3(
-                            v′,
-                            v′′_abso,
-                            reclattvecs,
-                            brillouin_sampling,
-                        )
+                    smearing_emit =
+                        smearing_type3(v′, v′′_emit, reclattvecs, brillouin_sampling)
 
-                        smearing_emit = smearing_type3(
-                            v′,
-                            v′′_emit,
-                            reclattvecs,
-                            brillouin_sampling,
-                        )
+                    Λplus = δ(ω, ω′′_abso - ω′, 0.8 * smearing_abso)
 
-                        Λplus = δ(ω, ω′′_abso - ω′, smearing_abso)
+                    Λminus = δ(ω, ω′′_emit + ω′, 0.8 * smearing_emit)
 
-                        Λminus = δ(ω, ω′′_emit + ω′, smearing_emit)
-
-                        Λ += Λplus + 0.5 * Λminus
-                    end
+                    Λ += Λplus + 0.5 * Λminus
                 end
-                phasespace[ifreq, iq] = (Λ / numq2)
             end
+            phasespace[iq, s] = (Λ / numq2)
         end
 
         new(phasespace)

@@ -296,7 +296,8 @@ end
 Gaussian delta function approximation.
 """
 function δ(x::Float64, a::Float64, omega::Float64)
-    return (1 / (sqrt(2 * pi) * omega)) * exp(-(a - x)^2 / (2 * omega^2))
+    piecewise = 0.5 * (sign(x + 2 * omega - a) - sign(x - 2 * omega - a))
+    return piecewise * (1 / (sqrt(2 * pi) * omega)) * exp(-(a - x)^2 / (2 * omega^2))
 end
 
 function bose(E::Float64, kbT::Float64)
