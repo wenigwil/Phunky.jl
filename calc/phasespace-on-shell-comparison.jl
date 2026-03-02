@@ -55,7 +55,6 @@ p = Plots.plot(
     color = :blue,
     linealpha = 0.0,
     markershape = :circle,
-    # ylims = (0.0, 4 * 10^5),
     markerstrokewidth = 0.0,
     markerstrokealpha = 0.0,
     markersize = 1,
@@ -74,48 +73,48 @@ p = Plots.plot(
 
 # COMPARISON DATA
 # We will read the scattering rates for comparison and the energies
-# energies_file = readlines("examples/12x12x12/ph.ens_ibz")
-# energies_comp = Matrix{Float64}(undef, (numq1, numbranches))
-# for iq in axes(q1_cryst, 1)
-#     energies_comp[iq, :] = parse.(Float64, split(energies_file[iq]))
-# end
-# energies_comp = reshape(energies_comp, (numq1 * numbranches)) .* 1000
-#
-# # We will read the scattering rates for comparison and the energies
-# phsp_minus_file = readlines("examples/12x12x12/ph.phase_space3_minus");
-# phsp_plus_file = readlines("examples/12x12x12/ph.phase_space3_plus");
-# phsp_minus_comp = Matrix{Float64}(undef, (numq1, numbranches));
-# phsp_plus_comp = Matrix{Float64}(undef, (numq1, numbranches));
-# for iq in axes(q1_cryst, 1)
-#     phsp_minus_comp[iq, :] = parse.(Float64, split(phsp_minus_file[iq]))
-#     phsp_plus_comp[iq, :] = parse.(Float64, split(phsp_plus_file[iq]))
-# end
-# phsp_minus_comp = reshape(phsp_minus_comp, (numq1 * numbranches));
-# phsp_plus_comp = reshape(phsp_plus_comp, (numq1 * numbranches));
-#
-# phsp_comp = phsp_plus_comp + 0.5 * phsp_minus_comp
-#
-# # identical plot with comp data
-# Plots.plot(
-#     energies_comp,
-#     phsp_comp;
-#     size = plot_size,
-#     color = :blue,
-#     legend_position = false,
-#     grid = false,
-#     linealpha = 0.0,
-#     # ylims = (0.0, 650.0),
-#     markershape = :circle,
-#     markerstrokewidth = 0.0,
-#     markerstrokealpha = 0.0,
-#     markersize = 1,
-#     framestyle = :box,
-#     tickdirection = :out,
-#     xlabel = L"\mathrm{Frequency}\;\hbar\omega\;[\mathrm{meV}]",
-#     ylabel = L"P^{3}(\bar{q}_1,\omega) \;\; [\mathrm{eV}^{-1}]",
-#     title = "12x12x12 elphbolt reference " * L"P^{(3)}",
-#     xtickfontsize = 12,
-#     ytickfontsize = 12,
-#     ylabelfontsize = 12,
-#     # extra_kwargs = Dict(:subplot => extra_dict),
-# )
+energies_file = readlines("examples/12x12x12/ph.ens_ibz")
+energies_comp = Matrix{Float64}(undef, (numq1, numbranches))
+for iq in axes(q1_cryst, 1)
+    energies_comp[iq, :] = parse.(Float64, split(energies_file[iq]))
+end
+energies_comp = reshape(energies_comp, (numq1 * numbranches)) .* 1000
+
+# We will read the scattering rates for comparison and the energies
+phsp_minus_file = readlines("examples/12x12x12/ph.phase_space3_minus");
+phsp_plus_file = readlines("examples/12x12x12/ph.phase_space3_plus");
+phsp_minus_comp = Matrix{Float64}(undef, (numq1, numbranches));
+phsp_plus_comp = Matrix{Float64}(undef, (numq1, numbranches));
+for iq in axes(q1_cryst, 1)
+    phsp_minus_comp[iq, :] = parse.(Float64, split(phsp_minus_file[iq]))
+    phsp_plus_comp[iq, :] = parse.(Float64, split(phsp_plus_file[iq]))
+end
+phsp_minus_comp = reshape(phsp_minus_comp, (numq1 * numbranches));
+phsp_plus_comp = reshape(phsp_plus_comp, (numq1 * numbranches));
+
+phsp_comp = phsp_plus_comp + 0.5 * phsp_minus_comp
+
+# identical plot with comp data
+Plots.plot(
+    energies_comp,
+    phsp_comp;
+    size = plot_size,
+    color = :blue,
+    legend_position = false,
+    grid = false,
+    linealpha = 0.0,
+    # ylims = (0.0, 650.0),
+    markershape = :circle,
+    markerstrokewidth = 0.0,
+    markerstrokealpha = 0.0,
+    markersize = 1,
+    framestyle = :box,
+    tickdirection = :out,
+    xlabel = L"\mathrm{Frequency}\;\hbar\omega\;[\mathrm{meV}]",
+    ylabel = L"P^{3}(\bar{q}_1,\omega) \;\; [\mathrm{eV}^{-1}]",
+    title = "12x12x12 elphbolt reference " * L"P^{(3)}",
+    xtickfontsize = 12,
+    ytickfontsize = 12,
+    ylabelfontsize = 12,
+    # extra_kwargs = Dict(:subplot => extra_dict),
+)
