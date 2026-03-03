@@ -358,3 +358,79 @@ function smearing_type3(
 
     return max(tiny, aux)
 end
+
+"""
+Write an array with 3 indeces to a file
+"""
+function write_to_file(
+    filename::AbstractString,
+    tensor::Array{T,3},
+) where {T<:Number}
+    file = open(filename, "w")
+
+    for islow in axes(tensor, 3)
+        write(file, "[:, :, $islow]\n")
+        for ifast in axes(tensor, 1)
+            for imedium in axes(tensor, 2)
+                write(file, string(tensor[ifast, imedium, islow]) * " ")
+            end
+            write(file, "\n")
+        end
+        write(file, "\n")
+    end
+
+    write(file, "\n")
+    close(file)
+end
+
+"""
+Read data into an 3d-array from a file written by `write_to_file()`
+"""
+function read_from_file!(
+    filename::AbstractString,
+    tensor::Array{T,3},
+) where {T<:Number}
+    file = open(filename, "r")
+
+    readline(file)
+    for islow in axes(tensor, 3)
+        for ifast in axes(tensor, 1)
+            tensor[ifast, :, islow] = parse.(T, split(readline(file)))
+        end
+        readline(file)
+        readline(file)
+    end
+
+    close(file)
+end
+
+"""
+Write a vector to a file
+"""
+function write_to_file(filename::AbstractString, data1d::Vector{T}) where {T<:Number}
+    file = open(filename, "w")
+
+    for i in axes(data1d, 1)
+        write(file, string(data1d[i]) * "\n")
+    end
+    write(file, "\n")
+
+    close(file)
+end
+
+"""
+Read to a vector from a file that written by `write_to_file()`
+"""
+function read_from_file!(
+    filename::AbstractString,
+    data1d::Vector{T},
+) where {T<:Number}
+    file = open(filename, "r")
+
+    for i in axes(data1d, 1)
+        data1d[i] = parse(T, readline(file))
+    end
+    readline(file)
+
+    close(file)
+end

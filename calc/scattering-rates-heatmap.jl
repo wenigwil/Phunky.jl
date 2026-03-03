@@ -25,7 +25,7 @@ seek_path_points = [
 ]
 seek_path_1 = seek_path_points[[2, 1, 3], :]
 sympath =
-    Sympath(seek_path_points, point_labels, seek_path_1, numpoints_per_section = 50)
+    Sympath(seek_path_points, point_labels, seek_path_1, numpoints_per_section = 10)
 
 q1_cryst = sympath.qpoints
 distances = sympath.distances
@@ -33,13 +33,13 @@ distances = sympath.distances
 # We give the frequencies in THz
 ω_max = 40
 ω_min = 0.001
-numfreqs = 125
+numfreqs = 10
 ω_cont = collect(range(ω_min, ω_max, numfreqs))
 
 # Temperature in [K]
 temperature = 300.0
 
-sampling = (18, 18, 18)
+sampling = (6, 6, 6)
 
 scattratt_container = Phonons(
     ebdata,
@@ -52,15 +52,20 @@ scattratt_container = Phonons(
     brillouin_sampling = sampling,
 )
 
+scattering_rates = scattratt_container.scattering_rate
+
+# Write important things for plotting to a file
+Phunky.write_to_file("data/scattratts_heatmap_Si_6x6x6.data", scattering_rates)
+Phunky.write_to_file("data/scattratts_heatmap_Si_6x6x6.qpath_distances", distances)
+
+# # ================================================================================
+# # PLOTTING
 # plot_aspectratio = 1 / 2 * (1 + sqrt(5))
 # plot_height = 300
 # plot_width = plot_height * plot_aspectratio
 # plot_size = (plot_width, plot_height)
-#
-# # Polish for the plot
 # extra_dict =
 #     Dict("tick style" => "thick", "xtick pos" => "left", "ytick pos" => "left")
-#
 # p = Plots.heatmap(
 #     distances,
 #     ω_cont * Phunky.turnTHz_to_eV * 1000,
@@ -84,3 +89,4 @@ scattratt_container = Phonons(
 #     colorbar_title = L"P^{3}(\bar{q},\omega) \;\; [\mathrm{eV}^{-1}]",
 #     extra_kwargs = Dict(:subplot => extra_dict),
 # )
+# # =================================================================================
