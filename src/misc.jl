@@ -296,7 +296,22 @@ end
 Gaussian delta function approximation.
 """
 function δ(x::Float64, a::Float64, omega::Float64)
-    return (1 / (sqrt(2 * pi) * omega)) * exp(-(a - x)^2 / (2 * omega^2))
+    # Cheap (?) Heaviside Function
+    piecewise = 0.5 * (sign(x + 2 * omega - a) - sign(x - 2 * omega - a))
+    return piecewise * (1 / (sqrt(2 * pi) * omega)) * exp(-(a - x)^2 / (2 * omega^2))
+end
+
+function check_energy_conservation_δ(
+    x::Float64,
+    a::Float64,
+    sigma::Float64,
+)::Tuple{Bool,Float64}
+    # Cut-off for the delta function beyond 2σ
+    cut_off = 2 * sigma
+    piecewise = 0.5 * (sign(x + cut_off - a) - sign(x - cut_off - a))
+    gauss = (1 / (sqrt(2 * pi) * sigma)) * exp(-(a - x)^2 / (2 * sigma^2))
+    # First part of the tuple can be checked against for energy conservation
+    return Bool(piecewise), piecewise * gauss
 end
 
 function bose(E::Float64, kbT::Float64)
@@ -339,7 +354,7 @@ function smearing_type3(
     end
 
     aux = sqrt(aux) * prefac
-    tiny = 1e-9
+    tiny = 1e-3
 
     return max(tiny, aux)
 end

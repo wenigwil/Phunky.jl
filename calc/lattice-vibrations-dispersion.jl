@@ -20,8 +20,8 @@ seek_path_points = [
 ]
 
 # Build a "walkable" path from the seekpath symmetry points
-seek_path_1 = seek_path_points[[1, 6, 4], :]
-seek_path_2 = seek_path_points[[2, 1, 3, 5, 6, 7], :]
+seek_path_1 = seek_path_points[[2, 1, 3], :]
+# seek_path_2 = seek_path_points[[2, 1, 3, 5, 6, 7], :]
 
 # Construct a qpoint list from a path and supply it with things to make it plottable
 @info "Building path..."
@@ -30,8 +30,8 @@ sympath = Sympath(
     seek_path_points,
     point_labels,
     seek_path_1,
-    seek_path_2;
-    numpoints_per_section = 200,
+    # seek_path_2;
+    numpoints_per_section = 50,
 )
 
 print("Generated a path of length", size(sympath.qpoints), "\n")

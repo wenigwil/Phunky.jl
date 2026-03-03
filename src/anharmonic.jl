@@ -81,7 +81,7 @@ struct Phonons
         anharmonic.jl: Calculating scattering rates for all λ and frequencies...
         """
         # Calculating the scattering rates
-        scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, 3 * numatoms))
+        scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, numbranches))
         Threads.@threads for ifreq in 1:numfreq
             ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
 
@@ -169,12 +169,21 @@ function calc_Λ(
 
             ω′′_abso = states.q3_abso_freqs[λ′′, iq] * turnTHz_to_eV
             ω′′_emit = states.q3_emit_freqs[λ′′, iq] * turnTHz_to_eV
-            v′′_abso = states.q3_abso_velos[λ′, :, iq]
-            v′′_emit = states.q3_emit_velos[λ′, :, iq]
 
             if iszero(ω′′_abso) || iszero(ω′′_emit)
                 continue
             end
+
+            v′′_abso = states.q3_abso_velos[λ′, :, iq]
+            v′′_emit = states.q3_emit_velos[λ′, :, iq]
+
+            smearing_abso = smearing_type3(v′, v′′_abso, reclattvecs, sampling)
+            smearing_emit = smearing_type3(v′, v′′_emit, reclattvecs, sampling)
+
+            energy_conversed_plus, delta_plus =
+                check_energy_conservation_δ(ω_cont, ω′′_abso - ω′, smearing_abso)
+            energy_conversed_minus, delta_minus =
+                check_energy_conservation_δ(ω_cont, ω′′_emit + ω′, smearing_emit)
 
             q′′_abso = q3_abso_cart[iq′, :, iq]
             q′′_emit = q3_emit_cart[iq′, :, iq]
@@ -182,51 +191,92 @@ function calc_Λ(
             W_λ′′_abso = states.q3_abso_evec[λ′′, :, :, iq]
             W_λ′′_emit = states.q3_emit_evec[λ′′, :, :, iq]
 
-            statistics_abso = begin
-                bose(ω′, kbT) - bose(ω′′_abso, kbT)
+            if energy_conversed_plus && energy_conversed_minus
+                statistics_abso = begin
+                    bose(ω′, kbT) - bose(ω′′_abso, kbT)
+                end
+
+                statistics_emit = begin
+                    bose(ω′, kbT) + bose(ω′′_emit, kbT) + 1
+                end
+
+                Λplus = begin
+                    statistics_abso / (ω′′_abso * ω′) *
+                    calc_V2plus(
+                        q′,
+                        q′′_abso,
+                        W_λ,
+                        W_λ′,
+                        W_λ′′_abso,
+                        ifc3_tensor,
+                        trip2atomindices,
+                        trip2position_j,
+                        trip2position_k,
+                    ) *
+                    delta_plus
+                end
+
+                Λminus = begin
+                    statistics_emit / (ω′′_emit * ω′) *
+                    calc_V2minus(
+                        q′,
+                        q′′_emit,
+                        W_λ,
+                        W_λ′,
+                        W_λ′′_emit,
+                        ifc3_tensor,
+                        trip2atomindices,
+                        trip2position_j,
+                        trip2position_k,
+                    ) *
+                    delta_minus
+                end
+                Λ += Λplus + 0.5 * Λminus
+            elseif energy_conversed_plus
+                statistics_abso = begin
+                    bose(ω′, kbT) - bose(ω′′_abso, kbT)
+                end
+
+                Λplus = begin
+                    statistics_abso / (ω′′_abso * ω′) *
+                    calc_V2plus(
+                        q′,
+                        q′′_abso,
+                        W_λ,
+                        W_λ′,
+                        W_λ′′_abso,
+                        ifc3_tensor,
+                        trip2atomindices,
+                        trip2position_j,
+                        trip2position_k,
+                    ) *
+                    delta_plus
+                end
+                Λ += Λplus
+            elseif energy_conversed_minus
+                statistics_emit = begin
+                    bose(ω′, kbT) + bose(ω′′_emit, kbT) + 1
+                end
+
+                Λminus = begin
+                    statistics_emit / (ω′′_emit * ω′) *
+                    calc_V2minus(
+                        q′,
+                        q′′_emit,
+                        W_λ,
+                        W_λ′,
+                        W_λ′′_emit,
+                        ifc3_tensor,
+                        trip2atomindices,
+                        trip2position_j,
+                        trip2position_k,
+                    ) *
+                    delta_minus
+                end
+                Λ += 0.5 * Λminus
+            else
+                continue
             end
-
-            statistics_emit = begin
-                bose(ω′, kbT) + bose(ω′′_emit, kbT) + 1
-            end
-
-            smearing_abso = smearing_type3(v′, v′′_abso, reclattvecs, sampling)
-
-            smearing_emit = smearing_type3(v′, v′′_emit, reclattvecs, sampling)
-
-            Λplus = begin
-                statistics_abso / (ω′′_abso * ω′) *
-                calc_V2plus(
-                    q′,
-                    q′′_abso,
-                    W_λ,
-                    W_λ′,
-                    W_λ′′_abso,
-                    ifc3_tensor,
-                    trip2atomindices,
-                    trip2position_j,
-                    trip2position_k,
-                ) *
-                δ(ω_cont, ω′′_abso - ω′, smearing_abso)
-            end
-
-            Λminus = begin
-                statistics_emit / (ω′′_emit * ω′) *
-                calc_V2minus(
-                    q′,
-                    q′′_emit,
-                    W_λ,
-                    W_λ′,
-                    W_λ′′_emit,
-                    ifc3_tensor,
-                    trip2atomindices,
-                    trip2position_j,
-                    trip2position_k,
-                ) *
-                δ(ω_cont, ω′′_emit + ω′, smearing_emit)
-            end
-
-            Λ += Λplus + 0.5 * Λminus
         end
     end
     return Λ
@@ -266,7 +316,7 @@ function calc_V2plus(
                         conj(W_λ′′[α′′, trip2atomindices[itrip, 3]]) *
                         ifc3_tensor[itrip, α, α′, α′′] *
                         exp(im * LinAlg.dot(q′, trip2position_j[itrip, :])) *
-                        exp(im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
+                        exp(-im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
                     end
                 end
             end
@@ -298,8 +348,8 @@ function calc_V2minus(
                         conj(W_λ′[α′, trip2atomindices[itrip, 2]]) *
                         conj(W_λ′′[α′′, trip2atomindices[itrip, 3]]) *
                         ifc3_tensor[itrip, α, α′, α′′] *
-                        exp(im * LinAlg.dot(q′, trip2position_j[itrip, :])) *
-                        exp(im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
+                        exp(-im * LinAlg.dot(q′, trip2position_j[itrip, :])) *
+                        exp(-im * LinAlg.dot(q′′, trip2position_k[itrip, :]))
                     end
                 end
             end
