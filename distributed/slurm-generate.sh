@@ -3,7 +3,7 @@
 
 chunk=$1
 
-workdir="$HOME/opt/Phunky/distributed"
+workdir="$HOME/opt/Phunky.jl/distributed"
 cd "$workdir" || exit
 
 #Create slurm log directory
@@ -52,5 +52,3 @@ chmod 750 run.slurm
 sbatch run.slurm
 
 rm run.slurm
-
-cd - || exit
