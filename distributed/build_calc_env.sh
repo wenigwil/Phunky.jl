@@ -3,7 +3,7 @@
 calc_script_source=$1
 numchunks=$2
 
-# mkdir data
+mkdir data
 
 for i in $(seq 1 "$numchunks"); do
     new_script="calc_$i.jl"

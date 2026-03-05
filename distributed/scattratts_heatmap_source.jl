@@ -25,7 +25,7 @@ seek_path_points = [
 ]
 seek_path_1 = seek_path_points[[2, 1, 3], :]
 sympath =
-    Sympath(seek_path_points, point_labels, seek_path_1, numpoints_per_section = 50)
+    Sympath(seek_path_points, point_labels, seek_path_1, numpoints_per_section = 3)
 
 q1_cryst = sympath.qpoints
 distances = sympath.distances
@@ -33,14 +33,14 @@ distances = sympath.distances
 # We give the frequencies in THz
 ω_max = 40
 ω_min = 0.001
-numfreqs = 100
+numfreqs = 9
 ω_cont = collect(range(ω_min, ω_max, numfreqs))
 ω_cont = Phunky.get_vector_chunk(ω_cont, dist_over_N, dist_N)
 
 # Temperature in [K]
 temperature = 300.0
 
-sampling = (18, 18, 18)
+sampling = (3,3,3)
 
 scattratt_container = Phonons(
     ebdata,
