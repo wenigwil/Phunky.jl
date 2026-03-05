@@ -82,10 +82,10 @@ struct Phonons
         """
         # Calculating the scattering rates
         scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, numbranches))
-        Threads.@threads for ifreq in 1:numfreq
+        for ifreq in 1:numfreq
             ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
 
-            for λ in axes(states.q1_evec, 1)
+            Threads.@threads for λ in axes(states.q1_evec, 1)
                 s1, iq1 = demux1to2(λ, numq1)
                 ω = states.q1_freqs[λ] * turnTHz_to_eV
 
