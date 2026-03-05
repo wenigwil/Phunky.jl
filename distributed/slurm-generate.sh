@@ -3,11 +3,11 @@
 
 chunk=$1
 
-workdir="$HOME/opt/Phunky.jl/distributed"
+workdir="$HOME/opt/Phunky.jl"
 cd "$workdir" || exit
 
 #Create slurm log directory
-mkdir -p "$workdir/job-submission"
+mkdir -p "$workdir/distributed/job-submission"
 
 #==================================================================================================================================
 #==================================================CONTENTS OF THE run.slurm FILE==================================================
@@ -32,12 +32,12 @@ cat > run.slurm << EOF
 #If yes, specify 2.
 #SBATCH --ntasks-per-core=1
 #SBATCH --time=48:00:00             # Time limit hrs:min:sec
-#SBATCH --output=${workdir}/job-submission/slurmjob_calc_$chunk.log    
+#SBATCH --output=${workdir}/distributed/job-submission/slurmjob_calc_$chunk.log    
 
 echo "[SLURM-SETUP] Beginning to load necessary modules..."
 julia --project=. --version
 
-julia --project=. $workdir/calc_$chunk.jl
+julia --project=. $workdir/distributed/calc_$chunk.jl
 
 echo " "
 echo "[SLURM-SETUP] End of slurm-script instructions!"

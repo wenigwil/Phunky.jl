@@ -1,3 +1,6 @@
+dist_N=1
+dist_over_N=3
+
 include("../src/Phunky.jl")
 using .Phunky
 import Plots
@@ -60,8 +63,8 @@ Phunky.write_to_file(
     "data/Si_18x18x18.scattrats.N_" * string(dist_N),
     scattering_rates,
 )
-Phunky.write_to_file("data/Si_18x18x18.distances.N_" * string(dist_N), distances)
-Phunky.write_to_file("data/Si_18x18x18.w_cont.N_" * string(dist_N), ω_cont)
+Phunky.write_to_file("distributed/data/Si_18x18x18.distances.N_" * string(dist_N), distances)
+Phunky.write_to_file("distributed/data/Si_18x18x18.w_cont.N_" * string(dist_N), ω_cont)
 
 # # ================================================================================
 # # PLOTTING
