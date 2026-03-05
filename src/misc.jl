@@ -366,12 +366,17 @@ function write_to_file(
     filename::AbstractString,
     tensor::Array{T,3},
 ) where {T<:Number}
+    shape = size(tensor)
     file = open(filename, "w")
 
-    for islow in axes(tensor, 3)
-        write(file, "[:, :, $islow]\n")
-        for ifast in axes(tensor, 1)
-            for imedium in axes(tensor, 2)
+    write(
+        file,
+        string(shape[1]) * " " * string(shape[2]) * " " * string(shape[3]) * "\n\n",
+    )
+
+    for ifast in axes(tensor, 1)
+        for imedium in axes(tensor, 2)
+            for islow in axes(tensor, 3)
                 write(file, string(tensor[ifast, imedium, islow]) * " ")
             end
             write(file, "\n")
@@ -386,22 +391,24 @@ end
 """
 Read data into an 3d-array from a file written by `write_to_file()`
 """
-function read_from_file!(
-    filename::AbstractString,
-    tensor::Array{T,3},
-) where {T<:Number}
+function read_from_file!(filename::AbstractString, tensor_eltype::DataType)
     file = open(filename, "r")
 
+    shape = Tuple(parse.(Int64, split(readline(file))))
+
+    tensor = Array{tensor_eltype,3}(undef, shape)
+
     readline(file)
-    for islow in axes(tensor, 3)
-        for ifast in axes(tensor, 1)
-            tensor[ifast, :, islow] = parse.(T, split(readline(file)))
+    for ifast in axes(tensor, 1)
+        for imedium in axes(tensor, 2)
+            tensor[ifast, imedium, :] = parse.(tensor_eltype, split(readline(file)))
         end
-        readline(file)
         readline(file)
     end
 
     close(file)
+
+    return tensor
 end
 
 """
@@ -433,4 +440,27 @@ function read_from_file!(
     readline(file)
 
     close(file)
+end
+
+"""
+Divide a vector into N equal chunks and return chunk N. N is a 1-based index.
+I tested this function a lot!
+"""
+function get_vector_chunk(
+    array1d::Vector{T},
+    numchunks::Int64,
+    chunk::Int64,
+)::Vector{T} where {T<:Number}
+    if length(array1d) % numchunks != 0
+        @error "Your supplied array can't be divided into equal parts!"
+        exit()
+    end
+
+    if chunk > numchunks
+        @error "Can't request a chunk that is beyond the length of the vector!"
+        exit()
+    end
+    chunksize = div(length(array1d), numchunks)
+
+    return array1d[((chunksize * (chunk - 1)) + 1):(chunksize * chunk)]
 end

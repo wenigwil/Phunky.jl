@@ -1,6 +1,3 @@
-dist_N = 1
-dist_over_N = 20
-
 include("../src/Phunky.jl")
 using .Phunky
 import Plots
