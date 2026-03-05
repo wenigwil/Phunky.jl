@@ -33,7 +33,7 @@ distances = sympath.distances
 # We give the frequencies in THz
 ω_max = 40
 ω_min = 0.001
-numfreqs = 100
+numfreqs = 60
 ω_cont = collect(range(ω_min, ω_max, numfreqs))
 ω_cont = Phunky.get_vector_chunk(ω_cont, dist_over_N, dist_N)
 
