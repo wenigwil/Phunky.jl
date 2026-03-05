@@ -2,7 +2,7 @@ include("../src/Phunky.jl")
 using .Phunky
 import Plots
 using LaTeXStrings
-Plots.pgfplotsx()
+# Plots.pgfplotsx()
 
 ebdata = ebInputData("examples/input.nml")
 numatoms = ebdata.allocations["numatoms"]
@@ -25,7 +25,7 @@ seek_path_points = [
 ]
 seek_path_1 = seek_path_points[[2, 1, 3], :]
 sympath =
-    Sympath(seek_path_points, point_labels, seek_path_1, numpoints_per_section = 3)
+    Sympath(seek_path_points, point_labels, seek_path_1, numpoints_per_section = 25)
 
 q1_cryst = sympath.qpoints
 distances = sympath.distances
@@ -33,14 +33,14 @@ distances = sympath.distances
 # We give the frequencies in THz
 ω_max = 40
 ω_min = 0.001
-numfreqs = 9
+numfreqs = 100
 ω_cont = collect(range(ω_min, ω_max, numfreqs))
 ω_cont = Phunky.get_vector_chunk(ω_cont, dist_over_N, dist_N)
 
 # Temperature in [K]
 temperature = 300.0
 
-sampling = (3,3,3)
+sampling = (18, 18, 18)
 
 scattratt_container = Phonons(
     ebdata,
@@ -60,8 +60,14 @@ Phunky.write_to_file(
     "distributed/data/Si_18x18x18.scattrats.N_" * string(dist_N),
     scattering_rates,
 )
-Phunky.write_to_file("distributed/data/Si_18x18x18.distances.N_" * string(dist_N), distances)
-Phunky.write_to_file("distributed/data/Si_18x18x18.w_cont.N_" * string(dist_N), ω_cont)
+Phunky.write_to_file(
+    "distributed/data/Si_18x18x18.distances.N_" * string(dist_N),
+    distances,
+)
+Phunky.write_to_file(
+    "distributed/data/Si_18x18x18.w_cont.N_" * string(dist_N),
+    ω_cont,
+)
 
 # # ================================================================================
 # # PLOTTING
