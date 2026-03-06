@@ -57,6 +57,7 @@ scattering_rates = scattratt_container.scattering_rate
 # Write important things for plotting to a file
 Phunky.write_to_file("data/scattratts_heatmap_Si_6x6x6.data", scattering_rates)
 Phunky.write_to_file("data/scattratts_heatmap_Si_6x6x6.qpath_distances", distances)
+Phunky.write_to_file("data/scattratts_heatmap_Si_6x6x6.omega_cont", ω_cont)
 
 # # ================================================================================
 # # PLOTTING

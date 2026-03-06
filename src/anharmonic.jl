@@ -83,6 +83,7 @@ struct Phonons
         # Calculating the scattering rates
         scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, numbranches))
         Threads.@threads for ifreq in 1:numfreq
+            println("At ifreq=", ifreq)
             ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
 
             for λ in axes(states.q1_evec, 1)
@@ -182,6 +183,7 @@ function calc_Λ(
 
             energy_conversed_plus, delta_plus =
                 check_energy_conservation_δ(ω_cont, ω′′_abso - ω′, smearing_abso)
+
             energy_conversed_minus, delta_minus =
                 check_energy_conservation_δ(ω_cont, ω′′_emit + ω′, smearing_emit)
 
