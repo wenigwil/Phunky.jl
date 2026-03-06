@@ -22,9 +22,9 @@ export LatticeVibrations
 export DensityOfStates
 
 include("state.jl")
-include("anharmonic.jl")
+include("linewidth.jl")
 export HarmonicStatesData
-export Phonons
+export Linewidth
 export PhaseSpace
 
 include("tests.jl")

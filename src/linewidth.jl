@@ -1,7 +1,7 @@
-struct Phonons
-    scattering_rate::Array{Float64,3}
+struct Linewidth
+    linewidths::Array{Float64,3}
 
-    function Phonons(
+    function Linewidth(
         ebdata::ebInputData,
         deconvolution::DeconvData,
         sodata::qeIfc2Output,
@@ -81,7 +81,7 @@ struct Phonons
         anharmonic.jl: Calculating scattering rates for all λ and frequencies...
         """
         # Calculating the scattering rates
-        scattering_rate = Array{Float64,3}(undef, (numfreq, numq1, numbranches))
+        linewidths = Array{Float64,3}(undef, (numfreq, numq1, numbranches))
         Threads.@threads for ifreq in 1:numfreq
             println("At ifreq=", ifreq)
             ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
@@ -94,11 +94,11 @@ struct Phonons
                 # state at the collective index vanishes. If so, we skip that 
                 # iteration because the scattering rate will diverge in this case.
                 if iszero(ω)
-                    scattering_rate[ifreq, iq1, s1] = 0.0
+                    linewidths[ifreq, iq1, s1] = 0.0
                     continue
                 end
 
-                scattering_rate[ifreq, iq1, s1] = begin
+                linewidths[ifreq, iq1, s1] = begin
                     calc_Λ(
                         λ,
                         ω_cont,
@@ -117,12 +117,12 @@ struct Phonons
                     ) *
                     hbar_Js *
                     J_to_eV *
-                    pi / (4 * numq2 * ω)
+                    pi / (2 * numq2 * ω)
                 end
             end
         end
 
-        new(scattering_rate)
+        new(linewidths)
     end
 end
 
