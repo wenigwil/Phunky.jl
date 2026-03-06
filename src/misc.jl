@@ -391,7 +391,7 @@ end
 """
 Read data into an 3d-array from a file written by `write_to_file()`
 """
-function read_from_file!(filename::AbstractString, tensor_eltype::DataType)
+function read3d_from_file(filename::AbstractString, tensor_eltype::DataType)
     file = open(filename, "r")
 
     shape = Tuple(parse.(Int64, split(readline(file))))
@@ -428,18 +428,18 @@ end
 """
 Read to a vector from a file that written by `write_to_file()`
 """
-function read_from_file!(
-    filename::AbstractString,
-    data1d::Vector{T},
-) where {T<:Number}
-    file = open(filename, "r")
+function read1d_from_file(filename::AbstractString, veceltype::DataType)
+    file = readlines(filename)
 
-    for i in axes(data1d, 1)
-        data1d[i] = parse(T, readline(file))
+    # Minus One because there is a space at the end!
+    numelements = size(file, 1) - 1
+
+    data1d = Vector{veceltype}(undef, numelements)
+    for i in 1:numelements
+        data1d[i] = parse(veceltype, file[i])
     end
-    readline(file)
 
-    close(file)
+    return data1d
 end
 
 """
