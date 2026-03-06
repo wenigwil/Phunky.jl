@@ -1,0 +1,13 @@
+[SLURM-SETUP] Beginning to load necessary modules...
+julia version 1.12.5
+┌ Info: state.jl: Building the Emission and Absorption q-point sets...
+│   numq1 = 51
+│   numq2 = 5832
+└   numq3 = 297432
+┌ Info: state.jl: Calculating Harmonic Properties for all q-points
+└   numallq = 600747
+[ Info: state.jl: Slicing and Reshaping the harmonic data...
+[ Info: anharmonic.jl: Calculating scattering rates for all λ and frequencies...
+ 
+[SLURM-SETUP] End of slurm-script instructions!
+Thu  5 Mar 14:39:57 CET 2026
