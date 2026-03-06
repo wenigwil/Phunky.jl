@@ -38,6 +38,8 @@ linewidth_container = Linewidth(
 
 linewidths = linewidth_container.linewidths
 
+Phunky.write_to_file("data/18x18x18-gamma-point-linewidths.data", linewidths)
+
 # # ================================================================================
 # # PLOTING
 # plot_aspectratio = 1 / 2 * (1 + sqrt(5))

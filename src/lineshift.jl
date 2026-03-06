@@ -1,13 +1,41 @@
 # The Hilbert Transform used in this part of Phunky.jl was adapted from
-# Dr. Jae-Mo Lihm's codebase Eps
+# Dr. Jae-Mo Lihm's codebase EPSpectral.jl
 
 struct Lineshift
     lineshifts::Array{Float64,3}
+    linewidth::Array{Float64,3}
+    ω_cont::Vector{Float64}
 
-    function Lineshift(linewidths::Array{Float64,3}) end
+    function Lineshift(ω_cont::Vector{Float64}, linewidths::Array{Float64,3})
+        ω_cont_extended = extend_to_odd(ω_cont)
+        shape = size(linewidths)
+        lineshifts = Array{Float64,3}(undef, (2 * shape[1], shape[2], shape[3]))
+        linewidths_extended_full = Array{Float64,3}(undef, size(lineshifts))
+        for s in axes(lineshifts, 3)
+            for iq in axes(lineshifts, 2)
+                linewidths_extended = extend_to_odd(linewidths[:, iq, s])
+
+                # The lineshifts will have the same shape as the linewidths
+                lineshifts[:, iq, s] =
+                    kramers_kronig(ω_cont_extended, linewidths_extended)
+
+                linewidths_extended_full[:, iq, s] = linewidths_extended
+            end
+        end
+
+        new(lineshifts, linewidths_extended_full, ω_cont_extended)
+    end
 end
-
-function kramers_kronig(ω_cont::Vector{Float64}, lw; tail = false)
+function extend_to_odd(x::Vector{T}) where {T<:Number}
+    x_reverse = (-1) .* reverse(x)
+    x_extended = vcat(x_reverse, x)
+    return x_extended
+end
+function kramers_kronig(
+    ω_cont::Vector{Float64},
+    lw::Vector{Float64};
+    tail::Bool = false,
+)
     ls = zeros(length(ω_cont))
 
     # Linearly fit y in (ωs[j] - dω/2, ωs[j] + dω/2) and integrate.
@@ -66,5 +94,5 @@ function kramers_kronig(ω_cont::Vector{Float64}, lw; tail = false)
         end
     end
 
-    ls
+    return ls
 end

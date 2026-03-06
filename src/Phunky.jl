@@ -27,6 +27,12 @@ export HarmonicStatesData
 export Linewidth
 export PhaseSpace
 
+include("lineshift.jl")
+export Lineshift
+
+include("spectral-function.jl")
+export SpectralFunction
+
 include("tests.jl")
 
 end # module Phunky

@@ -1,5 +1,6 @@
 struct Linewidth
     linewidths::Array{Float64,3}
+    eigenenergies::Matrix{Float64}
 
     function Linewidth(
         ebdata::ebInputData,
@@ -122,7 +123,7 @@ struct Linewidth
             end
         end
 
-        new(linewidths)
+        new(linewidths, states.q1_freqs * turnTHz_to_eV)
     end
 end
 
