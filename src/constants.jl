@@ -76,3 +76,5 @@ const dalton_to_2me = mu_kg / (2 * me_kg)
 # [rad * km / s] is the unit of a cross-radial velocity which is the
 # Bahngeschwindigkeit in German
 const Ryd_to_km_ov_s = c_m_ov_s * α / 2 * 10^(-3)
+
+const linewidth_conversion_to_THz = hbar_Js^4 / (e_C * mu_kg^3) * 1e42

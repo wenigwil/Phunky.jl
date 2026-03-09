@@ -113,10 +113,11 @@ struct Phonons
                 ) *
                 hbar_Js *
                 J_to_eV *
-                pi / (4 * numq2 * ω)
+                pi / (2 * numq2 * ω)
             end
         end
-
+        
+        scattering_rate .*= linewidth_conversion_to_THz/(2*2*pi)
         new(scattering_rate)
     end
 end
