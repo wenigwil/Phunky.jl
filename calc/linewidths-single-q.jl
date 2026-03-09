@@ -38,7 +38,7 @@ linewidth_container = Linewidth(
 
 linewidths = linewidth_container.linewidths
 
-Phunky.write_to_file("data/18x18x18-gamma-point-linewidths.data", linewidths)
+Phunky.write_to_file("data/24x24x24-gamma-point-linewidths.data", linewidths)
 
 # # ================================================================================
 # # PLOTING
