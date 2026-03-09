@@ -1,6 +1,6 @@
 struct Linewidth
     linewidths::Array{Float64,3}
-    eigenenergies::Matrix{Float64}
+    eigenenergies::Vector{Float64}
 
     function Linewidth(
         ebdata::ebInputData,
@@ -83,7 +83,7 @@ struct Linewidth
         """
         # Calculating the scattering rates
         linewidths = Array{Float64,3}(undef, (numfreq, numq1, numbranches))
-        Threads.@threads for ifreq in 1:numfreq
+        for ifreq in 1:numfreq
             println("At ifreq=", ifreq)
             ω_cont = cont_freqs[ifreq] * turnTHz_to_eV
 
@@ -123,6 +123,7 @@ struct Linewidth
             end
         end
 
+        linewidths .*= linewidth_conversion_to_THz / (2 * 2 * pi)
         new(linewidths, states.q1_freqs * turnTHz_to_eV)
     end
 end
@@ -150,7 +151,7 @@ function calc_Λ(
     W_λ = states.q1_evec[λ, :, :]
 
     Λ = 0.0
-    for λ′ in axes(states.q2_evec, 1)
+    Threads.@threads for λ′ in axes(states.q2_evec, 1)
         _, iq′ = demux1to2(λ′, numq2)
 
         ω′ = states.q2_freqs[λ′] * turnTHz_to_eV

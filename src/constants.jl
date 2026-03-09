@@ -30,6 +30,9 @@ const kb_J_ov_K = 1.308649e-23
 # Reduced Plank constant [Js]
 const hbar_Js = h_Js / (2 * pi)
 
+# Reduced Plank constant [eV * ps]
+const hbar_eVps = hbar_Js / e_C * 10^(12)
+
 # Fine-structure constant [1]
 const α = e_C^2 / (2 * ε0_F_ov_m * h_Js * c_m_ov_s)
 
@@ -75,4 +78,6 @@ const dalton_to_2me = mu_kg / (2 * me_kg)
 # MULTIPLY with a Velocity in [1/Bohr] to convert into [rad * km / s]
 # [rad * km / s] is the unit of a cross-radial velocity which is the
 # Bahngeschwindigkeit in German
-const Ryd_to_km_ov_s = c_m_ov_s * α / 2 * 10^(-3)
+const Ryd_to_rad_km_ov_s = c_m_ov_s * α / 2 * 10^(-3)
+
+const linewidth_conversion_to_THz = hbar_Js^4 / (e_C * mu_kg^3) * 1e42

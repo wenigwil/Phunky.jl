@@ -105,7 +105,7 @@ struct LatticeVibrations
         # Convert from the Rydberg Unit System to SI
         # see in src/constants.jl for the explicit conversion description
         fullq_freqs .*= Ryd_to_turnTHz
-        velocities .*= Ryd_to_km_ov_s
+        velocities .*= Ryd_to_rad_km_ov_s
 
         new(fullq_freqs, eigdisplacement, velocities)
     end
