@@ -1,10 +1,11 @@
-# The Hilbert Transform used in this part of Phunky.jl was adapted from
-# Dr. Jae-Mo Lihm's codebase EPSpectral.jl
+# The Hilbert Transform used in this part of Phunky.jl is entirely from
+# Dr. Jae-Mo Lihm's codebase EPSpectral.jl you can find his code at
+# https://github.com/jaemolihm/EPSpectral.jl
 
 struct Lineshift
     lineshifts::Array{Float64,3}
-    linewidth::Array{Float64,3}
-    ω_cont::Vector{Float64}
+    linewidths_extended::Array{Float64,3}
+    ω_cont_extended::Vector{Float64}
 
     function Lineshift(ω_cont::Vector{Float64}, linewidths::Array{Float64,3})
         ω_cont_extended = extend_to_odd(ω_cont)
@@ -15,7 +16,7 @@ struct Lineshift
             for iq in axes(lineshifts, 2)
                 linewidths_extended = extend_to_odd(linewidths[:, iq, s])
 
-                # The lineshifts will have the same shape as the linewidths
+                # The  lineshifts will have the same shape as the linewidths
                 lineshifts[:, iq, s] =
                     kramers_kronig(ω_cont_extended, linewidths_extended)
 
@@ -26,11 +27,21 @@ struct Lineshift
         new(lineshifts, linewidths_extended_full, ω_cont_extended)
     end
 end
+
+# Outer Constructor for easy of use.
+function Lineshift(linewidth_container::Linewidth)
+    ω_cont = linewidth_container.ω_cont
+    linewidths = linewidth_container.linewidths
+
+    return Lineshift(ω_cont, linewidths)
+end
+
 function extend_to_odd(x::Vector{T}) where {T<:Number}
     x_reverse = (-1) .* reverse(x)
     x_extended = vcat(x_reverse, x)
     return x_extended
 end
+
 function kramers_kronig(
     ω_cont::Vector{Float64},
     lw::Vector{Float64};

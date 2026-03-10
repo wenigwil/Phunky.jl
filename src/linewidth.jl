@@ -1,6 +1,7 @@
 struct Linewidth
     linewidths::Array{Float64,3}
-    eigenenergies::Vector{Float64}
+    ω_cont::Vector{Float64}
+    eigenenergies::Matrix{Float64}
 
     function Linewidth(
         ebdata::ebInputData,
@@ -16,7 +17,6 @@ struct Linewidth
         # System description
         numatoms = ebdata.allocations["numatoms"]
         numbranches = 3 * numatoms
-        # TODO: What do we do about the units of the atomic masses?
         type2mass = ebdata.crystal_info["masses"]
         atindex2type = ebdata.crystal_info["atomtypes"]
         # Lattice Vectors come in [nm]
@@ -123,8 +123,12 @@ struct Linewidth
             end
         end
 
-        linewidths .*= linewidth_conversion_to_THz / (2 * 2 * pi)
-        new(linewidths, states.q1_freqs * turnTHz_to_eV)
+        linewidths .*= linewidth_conversion_to_THz / 2
+
+        # We will export the eigenenergies for computing the spectral function later
+        eigenenergies = reshape(states.q1_freqs, (numq1, numbranches))
+
+        new(linewidths, cont_freqs, eigenenergies)
     end
 end
 

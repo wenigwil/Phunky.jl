@@ -1,13 +1,13 @@
 struct SpectralFunction
     spectral_function::Array{Float64,3}
+    ω_cont_extended::Vector{Float64}
 
     function SpectralFunction(
-        lineshift_container::Lineshift,
+        linewidths::Array{Float64,3},
+        lineshifts::Array{Float64,3},
+        ω_cont_extended::Vector{Float64},
         eigenenergies::Matrix{Float64},
-        ω_cont::Vector{Float64},
     )
-        lineshifts = lineshift_container.lineshifts .* 10
-        linewidths = lineshift_container.linewidth .* 10
         spectral_function = Array{Float64,3}(undef, size(linewidths))
 
         for s in axes(spectral_function, 3)
@@ -16,7 +16,7 @@ struct SpectralFunction
                     ω_λ = eigenenergies[iq, s]
                     Γ_λ = linewidths[ifreq, iq, s]
                     Δ_λ = lineshifts[ifreq, iq, s]
-                    ω = ω_cont[ifreq]
+                    ω = ω_cont_extended[ifreq]
 
                     spectral_function[ifreq, iq, s] = begin
                         1 / pi * (4 * ω_λ^2 * Γ_λ) /
@@ -26,6 +26,19 @@ struct SpectralFunction
             end
         end
 
-        new(spectral_function)
+        new(spectral_function, ω_cont_extended)
     end
+end
+
+function SpectralFunction(
+    linewidth_container::Linewidth,
+    lineshift_container::Lineshift,
+)
+    eigenenergies = linewidth_container.eigenenergies
+
+    lineshifts = lineshift_container.lineshifts
+    linewidths = lineshift_container.linewidths_extended
+    ω_cont_extended = lineshift_container.ω_cont_extended
+
+    return SpectralFunction(linewidths, lineshifts, ω_cont_extended, eigenenergies)
 end
